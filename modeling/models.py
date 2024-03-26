@@ -4,36 +4,45 @@ import torch
 
 
 class CNNDQNAgent(nn.Module):
-    def __init__(self, input_shape, output_size):
+    def __init__(self, input_shape, output_size,
+                 conv_layers_params = [{'in_channels': 10, 'out_channels': 16, 'kernel_size': 3, 'stride': 2, 'padding': 1},
+                                    {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1},
+                                    {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}
+                                    ], fc_layers=[256]):
         super(CNNDQNAgent, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=10, out_channels=16, kernel_size=3, stride=2, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=2, padding=1)
-        self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=2, padding=1)
+        self.conv_layers = nn.ModuleList()
+        for layer_params in conv_layers_params:
+            self.conv_layers.append(
+                nn.Conv2d(
+                    in_channels=layer_params['in_channels'],
+                    out_channels=layer_params['out_channels'],
+                    kernel_size=layer_params['kernel_size'],
+                    stride=layer_params['stride'],
+                    padding=layer_params['padding']
+                )
+            )
 
+        self.fc_layers = nn.ModuleList()
         self.fc_input_dim = self.feature_size(input_shape)
-
-        self.fc1 = nn.Linear(self.fc_input_dim, 256)
-        self.fc2 = nn.Linear(256, output_size)
+        for units in fc_layers:
+            self.fc_layers.append(nn.Linear(self.fc_input_dim, units))
+            self.fc_input_dim = units
+        self.fc_layers.append(nn.Linear(fc_layers[-1] if fc_layers else self.fc_input_dim, output_size))
 
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
+        for conv in self.conv_layers:
+            x = F.relu(conv(x))
         x = x.view(x.size(0), -1)  # Flatten
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
+        for i, fc in enumerate(self.fc_layers):
+            x = F.relu(fc(x)) if i < len(self.fc_layers) - 1 else fc(x)
         return x
 
     def feature_size(self, input_shape):
-        return nn.Sequential(
-            nn.Conv2d(10, 16, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
-            nn.ReLU()
-        ).forward(torch.zeros(1, *input_shape)).data.view(1, -1).size(1)
-
+        with torch.no_grad():
+            x = torch.zeros(1, *input_shape)
+            for conv in self.conv_layers:
+                x = F.relu(conv(x))
+            return x.view(1, -1).size(1)
 
 
 class DQN(nn.Module):
