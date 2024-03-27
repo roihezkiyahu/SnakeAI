@@ -161,7 +161,7 @@ class Trainer:
             self.game.max_food_distance = episode // self.close_food_episodes_skip + 1
 
     def check_failed_init(self, steps, done, episode, game_action, probs, last_action, debug=False):
-        if steps <= 2 and done:
+        if steps <= 1 and done:
             if debug:
                 print("failed attempt")
                 image = self.visualizer.save_current_frame(game_action, probs)
