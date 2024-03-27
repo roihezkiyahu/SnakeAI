@@ -226,9 +226,9 @@ class Trainer:
 
         if (episode + 1) % self.n_memory_episodes == 0:
             relevant_rewards = self.rewards_memory[-self.n_memory_episodes:]
-            min_reward = np.nanmin(relevant_rewards)
-            max_reward = np.nanmax(relevant_rewards)
-            mean_reward = np.nanmean(relevant_rewards)
+            min_reward = int(np.nanmin(relevant_rewards))
+            max_reward = int(np.nanmax(relevant_rewards))
+            mean_reward = int(np.nanmean(relevant_rewards))
             mean_score = np.nanmean(self.score_memory[-self.n_memory_episodes:])
             print(
                 f"Episodes {episode + 1 - self.n_memory_episodes}-{episode + 1}: Min Reward: {min_reward},"
@@ -238,7 +238,7 @@ class Trainer:
     def train(self):
         for episode in range(self.episodes):
             total_reward, score = self.run_episode(episode)
-            print("", end="\r")
+            print(" " * 100, end="\r")
             print(f"current reward: {total_reward}, current score: {score}", end="\r")
             self.rewards_memory.append(total_reward)
             self.score_memory.append(score)
