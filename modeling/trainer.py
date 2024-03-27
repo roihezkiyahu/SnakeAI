@@ -100,12 +100,12 @@ class Trainer:
             discounted[t] = R
         return discounted
 
-    def compute_reward(self, score, last_score, done, move):
+    def compute_reward(self, score, last_score, done, move, snake_len):
         reward = self.reward_params['death'] * done
         reward += self.reward_params['move'] * move
         reward += (score - last_score) * self.reward_params['food']
-        reward += (score - last_score) * self.reward_params.get('food_length_dependent', 0) * score
-        reward += (score - last_score) * self.reward_params.get('death_length_dependent', 0) * score
+        reward += (score - last_score) * self.reward_params.get('food_length_dependent', 0) * snake_len
+        reward += done * self.reward_params.get('death_length_dependent', 0) * snake_len
         return reward
 
     def update_state(self, done):
@@ -189,7 +189,7 @@ class Trainer:
                 rewards.append(np.nan)
                 break
 
-            reward = self.compute_reward(score, last_score, done, last_action != game_action)
+            reward = self.compute_reward(score, last_score, done, last_action != game_action, len(self.game.snake))
             last_score = score
             rewards.append(reward)
 
