@@ -50,8 +50,8 @@ class SnakeGame:
 
     def random_start(self, initial_length):
         """Initialize the game with a random start position, direction, and length for the snake."""
-        head_x = random.randint(1, self.width - 2)
-        head_y = random.randint(1, self.height - 2)
+        head_x = random.randint(2, self.width - 3)
+        head_y = random.randint(2, self.height - 3)
         self.snake = [(head_x, head_y)]
         self.snake_direction = random.choice(['UP', 'DOWN', 'LEFT', 'RIGHT'])
 
@@ -207,7 +207,7 @@ def play_game():
         game.move()
         draw_game(screen, game)
         clock.tick(10)
-
+    clock.tick(1)
     pygame.quit()
     print(f"Game over! Your score was: {game.score}")
 

@@ -103,7 +103,9 @@ class Trainer:
     def compute_reward(self, score, last_score, done, move):
         reward = self.reward_params['death'] * done
         reward += self.reward_params['move'] * move
-        reward += (score - last_score) * self.reward_params['food'] * (1 + (score - 1) / 2)
+        reward += (score - last_score) * self.reward_params['food']
+        reward += (score - last_score) * self.reward_params.get('food_length_dependent', 0) * score
+        reward += (score - last_score) * self.reward_params.get('death_length_dependent', 0) * score
         return reward
 
     def update_state(self, done):
@@ -159,7 +161,7 @@ class Trainer:
             self.game.max_food_distance = episode // self.close_food_episodes_skip + 1
 
     def check_failed_init(self, steps, done, episode, game_action, probs, last_action, debug=False):
-        if steps == 1 and done:
+        if steps <= 2 and done:
             if debug:
                 print("failed attempt")
                 image = self.visualizer.save_current_frame(game_action, probs)
@@ -236,6 +238,7 @@ class Trainer:
     def train(self):
         for episode in range(self.episodes):
             total_reward, score = self.run_episode(episode)
+            print("", end="\r")
             print(f"current reward: {total_reward}, current score: {score}", end="\r")
             self.rewards_memory.append(total_reward)
             self.score_memory.append(score)
