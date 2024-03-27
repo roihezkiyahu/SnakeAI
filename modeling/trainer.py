@@ -185,7 +185,7 @@ class Trainer:
             game_action = postprocess_action(action)
             self.game.change_direction(game_action)
             score, done = self.game.move()
-            if self.check_failed_init(self, steps, done, episode, game_action, probs, last_action):
+            if self.check_failed_init(steps, done, episode, game_action, probs, last_action):
                 rewards.append(np.nan)
                 break
 
