@@ -10,19 +10,9 @@ from processing import preprocess_state, postprocess_action
 import torch.nn.functional as F
 import random
 import imageio
+import matplotlib.pyplot as plt
 
 class Trainer:
-    def choose_action(self, state, episode):
-        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-        epsilon = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1. * episode / self.EPS_DECAY)
-
-        if torch.rand(1, device=self.device).item() < epsilon:
-            return torch.randint(0, 4, (1,), device=self.device).item(), [0, 0, 0, 0]
-        else:
-            with torch.no_grad():
-                probs = self.model(state_tensor)
-                return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
-
     def __init__(
             self,
             game,
@@ -80,10 +70,22 @@ class Trainer:
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate) if not optimizer else optimizer
         self.criterion = nn.MSELoss()
         self.rewards_memory = []
+        self.score_memory = []
         self.frames = []
         self.memory = ReplayMemory(replaymemory)
         self.max_init_len = max_init_len
         self.discount_rate = discount_rate
+
+    def choose_action(self, state, episode):
+        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+        epsilon = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1. * episode / self.EPS_DECAY)
+
+        if torch.rand(1, device=self.device).item() < epsilon:
+            return torch.randint(0, 4, (1,), device=self.device).item(), [0, 0, 0, 0]
+        else:
+            with torch.no_grad():
+                probs = self.model(state_tensor)
+                return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
 
     def compute_loss(self, log_probs, rewards):
         discounted_rewards = self.discount_rewards(rewards, self.discount_rate)
@@ -150,18 +152,30 @@ class Trainer:
         loss.backward()
         self.optimizer.step()
 
-    def run_episode(self, episode):
+    def init_game_max_food_distance(self, episode):
         if episode > self.close_food:
             self.game.max_food_distance = None
         else:
             self.game.max_food_distance = episode // self.close_food_episodes_skip + 1
+
+    def check_failed_init(self, steps, done, episode, game_action, probs, last_action, debug=False):
+        if steps == 1 and done:
+            if debug:
+                print("failed attempt")
+                image = self.visualizer.save_current_frame(game_action, probs)
+                plt.imshow(image)
+                plt.show()
+                print(f"{last_action}, {game_action}")
+            if (episode + 1) % self.save_gif_every_x_epochs == 0:
+                self.visualize_and_save_game_state(episode, game_action, probs)
+            return True
+        return False
+
+    def run_episode(self, episode):
+        self.init_game_max_food_distance(episode)
         self.game.reset_game(random.randint(2, self.max_init_len))
         state = preprocess_state(self.game)
-        done = False
-        last_score = 0
-        last_action = self.game.snake_direction
-        rewards = []
-        steps = 0
+        done, last_score, steps, score, rewards, last_action = False, 0, 0, np.nan, [], self.game.snake_direction
 
         while not done and steps <= self.max_episode_len:
             steps += 1
@@ -169,15 +183,8 @@ class Trainer:
             game_action = postprocess_action(action)
             self.game.change_direction(game_action)
             score, done = self.game.move()
-            if steps == 1 and done:
-                #                 print("failed attempt")
-                #                 image = self.visualizer.save_current_frame(game_action, probs)
-                #                 plt.imshow(image)
-                #                 plt.show()
-                #                 print(f"{last_action}, {game_action}")
-                if (episode + 1) % self.save_gif_every_x_epochs == 0:
-                    self.visualize_and_save_game_state(episode, game_action, probs)
-                rewards.append(0)
+            if self.check_failed_init(self, steps, done, episode, game_action, probs, last_action):
+                rewards.append(np.nan)
                 break
 
             reward = self.compute_reward(score, last_score, done, last_action != game_action)
@@ -198,11 +205,10 @@ class Trainer:
                             1 - self.TAU)
             self.target_net.load_state_dict(target_net_state_dict)
 
-            # Capture the game state as a frame if we are in a saving episode
             if (episode + 1) % self.save_gif_every_x_epochs == 0:
                 self.visualize_and_save_game_state(episode, game_action, probs)
 
-        return np.sum(rewards)  # Total reward for the episode
+        return np.sum(rewards), score
 
     def visualize_and_save_game_state(self, episode, game_action, probs):
         if (episode + 1) % self.save_gif_every_x_epochs == 0:
@@ -217,17 +223,22 @@ class Trainer:
             self.frames = []  # Clear frames after saving
 
         if (episode + 1) % self.n_memory_episodes == 0:
-            min_reward = min(self.rewards_memory[-self.n_memory_episodes:])
-            max_reward = max(self.rewards_memory[-self.n_memory_episodes:])
-            mean_reward = np.mean(self.rewards_memory[-self.n_memory_episodes:])
+            relevant_rewards = self.rewards_memory[-self.n_memory_episodes:]
+            min_reward = np.nanmin(relevant_rewards)
+            max_reward = np.nanmax(relevant_rewards)
+            mean_reward = np.nanmean(relevant_rewards)
+            mean_score = np.nanmean(self.score_memory[-self.n_memory_episodes:])
             print(
-                f"Episodes {episode + 1 - self.n_memory_episodes}-{episode + 1}: Min Reward: {min_reward}, Max Reward: {max_reward}, Mean Reward: {mean_reward}")
+                f"Episodes {episode + 1 - self.n_memory_episodes}-{episode + 1}: Min Reward: {min_reward},"
+                f" Max Reward: {max_reward}, Mean Reward: {mean_reward}, Mean Score: {mean_score}")
             self.rewards_memory = []
 
     def train(self):
         for episode in range(self.episodes):
-            total_reward = self.run_episode(episode)
+            total_reward, score = self.run_episode(episode)
+            print(f"current reward: {total_reward}, current score: {score}", end="\r")
             self.rewards_memory.append(total_reward)
+            self.score_memory.append(score)
 
             # Log performance statistics and compile GIF as configured
             self.log_and_compile_gif(episode)

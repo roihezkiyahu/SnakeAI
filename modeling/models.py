@@ -5,7 +5,7 @@ import torch
 
 class CNNDQNAgent(nn.Module):
     def __init__(self, input_shape, output_size,
-                 conv_layers_params = [{'in_channels': 10, 'out_channels': 16, 'kernel_size': 3, 'stride': 2, 'padding': 1},
+                 conv_layers_params=[{'in_channels': 10, 'out_channels': 16, 'kernel_size': 3, 'stride': 2, 'padding': 1},
                                     {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1},
                                     {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}
                                     ], fc_layers=[256]):
