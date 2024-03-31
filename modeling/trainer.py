@@ -73,8 +73,7 @@ class Trainer:
         self.rewards_memory = []
         self.score_memory = []
         self.frames = []
-        # self.memory = PERMemory(replaymemory, per_alpha)
-        self.memory = ReplayMemory(replaymemory)
+        self.memory = PERMemory(replaymemory, per_alpha)
         self.max_init_len = max_init_len
         self.discount_rate = discount_rate
 
@@ -149,7 +148,9 @@ class Trainer:
             return
 
         state_batch, action_batch, reward_batch, next_state_batch, non_final_mask, weights, indices = self.get_batch()
-
+        print(state_batch.state.size)
+        print(action_batch.state.size)
+        print(reward_batch.state.size)
         state_action_values = self.model(state_batch).gather(1, action_batch.unsqueeze(-1))
 
         next_state_values = torch.zeros(self.batch_size, device=self.device)
