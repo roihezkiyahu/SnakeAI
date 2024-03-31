@@ -119,9 +119,8 @@ class Trainer:
     def get_batch(self):
         transitions, indices, weights = self.memory.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
-        print(batch.state.size())
-        state_batch = torch.cat(batch.state).to(self.device)
-        action_batch = torch.cat(batch.action).to(self.device)
+        state_batch = torch.stack(batch.state).to(self.device)
+        action_batch = torch.stack(batch.action).to(self.device)
         reward_batch = torch.cat(batch.reward).to(self.device)
         next_state_batch = torch.cat([s for s in batch.next_state if s is not None]).to(self.device)
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool,
@@ -148,10 +147,7 @@ class Trainer:
             return
 
         state_batch, action_batch, reward_batch, next_state_batch, non_final_mask, weights, indices = self.get_batch()
-        print(state_batch.size())
-        print(action_batch.size())
-        print(reward_batch.size())
-        state_action_values = self.model(state_batch).gather(1, action_batch.unsqueeze(-1))
+        state_action_values = self.model(state_batch).gather(1, action_batch)
 
         next_state_values = torch.zeros(self.batch_size, device=self.device)
         next_state_values[non_final_mask] = self.target_net(next_state_batch).max(1)[0].detach()
