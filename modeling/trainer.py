@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import os
-from memory import ReplayMemory, Transition
+from memory import ReplayMemory, Transition, PERMemory
 import math
 import numpy as np
 from processing import preprocess_state, postprocess_action
@@ -38,7 +38,8 @@ class Trainer:
             max_init_len=15,
             replaymemory=10000,
             optimizer=None,
-            discount_rate=0.99
+            discount_rate=0.99,
+            per_alpha=0,
     ):
         self.use_ddqn = use_ddqn
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -72,7 +73,7 @@ class Trainer:
         self.rewards_memory = []
         self.score_memory = []
         self.frames = []
-        self.memory = ReplayMemory(replaymemory)
+        self.memory = PERMemory(replaymemory, per_alpha)
         self.max_init_len = max_init_len
         self.discount_rate = discount_rate
 
@@ -115,44 +116,55 @@ class Trainer:
         next_state_tensor = torch.FloatTensor(next_state).unsqueeze(0)
         return next_state, next_state_tensor
 
+    def get_batch(self):
+        transitions, indices, weights = self.memory.sample(self.batch_size)
+        batch = Transition(*zip(*transitions))
+
+        state_batch = torch.cat(batch.state).to(self.device)
+        action_batch = torch.cat(batch.action).to(self.device)
+        reward_batch = torch.cat(batch.reward).to(self.device)
+        next_state_batch = torch.cat([s for s in batch.next_state if s is not None]).to(self.device)
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool,
+                                      device=self.device)
+
+        weights = torch.tensor(weights, dtype=torch.float32, device=self.device).unsqueeze(1)
+
+        return state_batch, action_batch, reward_batch, next_state_batch, non_final_mask, weights, indices
+
+    def get_state_target_value(self, state_batch, action_batch, non_final_next_states, non_final_mask):
+        state_action_values = self.model(state_batch).gather(1, action_batch)
+        target_net_pred = self.target_net(non_final_next_states)
+        if self.use_ddqn:
+            best_actions = self.model(non_final_next_states).max(1)[1].unsqueeze(1)
+            target_action_values = torch.zeros(self.batch_size, device=self.device)
+            target_action_values[non_final_mask] = target_net_pred.gather(1, best_actions).squeeze()
+        else:
+            target_action_values = torch.zeros(self.batch_size, device=self.device)
+            target_action_values[non_final_mask] = target_net_pred.max(1)[0]
+        return state_action_values, target_action_values
+
     def optimize_model(self):
         if len(self.memory) < self.batch_size:
             return
 
-        transitions = self.memory.sample(self.batch_size)
-        batch = Transition(*zip(*transitions))
+        state_batch, action_batch, reward_batch, next_state_batch, non_final_mask, weights, indices = self.get_batch()
 
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool,
-                                      device=self.device)
-        non_final_next_states = torch.cat([s for s in batch.next_state if s is not None]).to(self.device)
-        state_batch = torch.stack(batch.state).to(self.device)
-        action_batch = torch.stack(batch.action)
-        reward_batch = torch.cat(batch.reward).to(self.device)
+        state_action_values = self.model(state_batch).gather(1, action_batch.unsqueeze(-1))
 
-        # Get the current Q-values for all actions
-        state_action_values = self.model(state_batch).gather(1, action_batch)
+        next_state_values = torch.zeros(self.batch_size, device=self.device)
+        next_state_values[non_final_mask] = self.target_net(next_state_batch).max(1)[0].detach()
 
-        if self.use_ddqn:
-            # In DDQN, select actions using the main network
-            best_actions = self.model(non_final_next_states).max(1)[1].unsqueeze(1)  # [batch_size, 1] for gather
-            next_state_values = torch.zeros(self.batch_size, device=self.device)
-            # Evaluate the selected actions' Q-values using the target network
-            next_state_values[non_final_mask] = self.target_net(non_final_next_states).gather(1, best_actions).squeeze()
-        else:
-            # In DQN, directly estimate the Q-values of next states using the target network
-            next_state_values = torch.zeros(self.batch_size, device=self.device)
-            next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0]
-
-        # Calculate the expected Q-values
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch
+        loss = (weights * F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1),
+                                           reduction='none')).mean()
 
-        # Compute the loss
-        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
-
-        # Backpropagation
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+
+        with torch.no_grad():
+            td_errors = (expected_state_action_values.unsqueeze(1) - state_action_values).abs().squeeze().cpu().numpy()
+            self.memory.update_priorities(indices, td_errors)
 
     def init_game_max_food_distance(self, episode):
         if episode > self.close_food:
@@ -200,8 +212,7 @@ class Trainer:
             state = next_state
             self.optimize_model()
 
-            target_net_state_dict = self.target_net.state_dict()
-            policy_net_state_dict = self.model.state_dict()
+            target_net_state_dict, policy_net_state_dict = self.target_net.state_dict(), self.model.state_dict()
             for key in policy_net_state_dict:
                 target_net_state_dict[key] = policy_net_state_dict[key] * self.TAU + target_net_state_dict[key] * (
                             1 - self.TAU)
@@ -219,7 +230,7 @@ class Trainer:
 
     def log_and_compile_gif(self, episode):
         if (episode + 1) % self.save_gif_every_x_epochs == 0:
-            gif_filename = f"{self.prefix_name}episode_{episode + 1}_score_{self.rewards_memory[-1]}.gif"
+            gif_filename = f"{self.prefix_name}episode_{episode + 1}_score_{self.score_memory[-1]}.gif"
             imageio.mimsave(gif_filename, self.frames, fps=5)
             print(f"GIF saved for episode {episode + 1}.")
             self.frames = []  # Clear frames after saving
