@@ -73,7 +73,8 @@ class Trainer:
         self.rewards_memory = []
         self.score_memory = []
         self.frames = []
-        self.memory = PERMemory(replaymemory, per_alpha)
+        # self.memory = PERMemory(replaymemory, per_alpha)
+        self.memory = ReplayMemory(replaymemory)
         self.max_init_len = max_init_len
         self.discount_rate = discount_rate
 
