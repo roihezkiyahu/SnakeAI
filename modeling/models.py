@@ -5,45 +5,62 @@ import torch
 
 class CNNDQNAgent(nn.Module):
     def __init__(self, input_shape, output_size,
-                 conv_layers_params=[{'in_channels': 10, 'out_channels': 16, 'kernel_size': 3, 'stride': 2, 'padding': 1},
-                                    {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1},
-                                    {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}
-                                    ], fc_layers=[256]):
+                 conv_layers_params=[
+                     {'in_channels': 10, 'out_channels': 16, 'kernel_size': 3, 'stride': 2, 'padding': 1},
+                     {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1},
+                     {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}
+                 ],
+                 fc_layers=[256], dueling=False):
         super(CNNDQNAgent, self).__init__()
-        self.conv_layers = nn.ModuleList()
-        for layer_params in conv_layers_params:
-            self.conv_layers.append(
-                nn.Conv2d(
-                    in_channels=layer_params['in_channels'],
-                    out_channels=layer_params['out_channels'],
-                    kernel_size=layer_params['kernel_size'],
-                    stride=layer_params['stride'],
-                    padding=layer_params['padding']
-                )
-            )
+        self.dueling = dueling
+        self.conv_layers = nn.ModuleList([nn.Conv2d(**params) for params in conv_layers_params])
+        self.fc_input_dim = self._feature_size(input_shape)
 
-        self.fc_layers = nn.ModuleList()
-        self.fc_input_dim = self.feature_size(input_shape)
-        for units in fc_layers:
-            self.fc_layers.append(nn.Linear(self.fc_input_dim, units))
-            self.fc_input_dim = units
-        self.fc_layers.append(nn.Linear(fc_layers[-1] if fc_layers else self.fc_input_dim, output_size))
+        if dueling:
+            self.value_layers = nn.ModuleList()
+            self.advantage_layers = nn.ModuleList()
+
+            for i, units in enumerate(fc_layers):
+                in_features = self.fc_input_dim if i == 0 else fc_layers[i - 1]
+                self.value_layers.append(nn.Linear(in_features, units))
+                self.advantage_layers.append(nn.Linear(in_features, units))
+
+            self.value_output = nn.Linear(fc_layers[-1], 1)
+            self.advantage_output = nn.Linear(fc_layers[-1], output_size)
+
+        else:
+            self.fc_layers = nn.ModuleList()
+            for i, units in enumerate(fc_layers):
+                in_features = self.fc_input_dim if i == 0 else fc_layers[i - 1]
+                self.fc_layers.append(nn.Linear(in_features, units))
+            self.fc_layers.append(nn.Linear(fc_layers[-1], output_size))
 
     def forward(self, x):
-        for conv in self.conv_layers:
-            x = F.relu(conv(x))
+        x = self._apply_layers(self.conv_layers, x)
         x = x.view(x.size(0), -1)  # Flatten
-        for i, fc in enumerate(self.fc_layers):
-            x = F.relu(fc(x)) if i < len(self.fc_layers) - 1 else fc(x)
+
+        if self.dueling:
+            value = self._apply_layers(self.value_layers, x)
+            value = self.value_output(value)
+            advantages = self._apply_layers(self.advantage_layers, x)
+            advantages = self.advantage_output(advantages)
+            q_vals = value + (advantages - advantages.mean(dim=1, keepdim=True))
+        else:
+            q_vals = self._apply_layers(self.fc_layers, x, True)
+        return q_vals
+
+    def _apply_layers(self, layers, x, dont_aplly_last=False):
+        for i, layer in enumerate(layers):
+            if dont_aplly_last and i == len(layers) - 1:
+                return layer(x)
+            x = F.relu(layer(x))
         return x
 
-    def feature_size(self, input_shape):
+    def _feature_size(self, input_shape):
         with torch.no_grad():
             x = torch.zeros(1, *input_shape)
-            for conv in self.conv_layers:
-                x = F.relu(conv(x))
+            x = self._apply_layers(self.conv_layers, x)
             return x.view(1, -1).size(1)
-
 
 
 class DQN(nn.Module):
