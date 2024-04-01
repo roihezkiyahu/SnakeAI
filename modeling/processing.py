@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 
 def initialize_state(game):
@@ -9,13 +10,10 @@ def initialize_state(game):
 
 def mark_snake_on_state(game, state):
     """Mark the snake's body, head, and tail on the state grid."""
-    # Mark the snake's body
     for x, y in game.snake[1:-1]:
         state[y, x] = 2
-    # Mark the snake's tail
     tail_x, tail_y = game.snake[-1]
     state[tail_y, tail_x] = 3
-    # Mark the snake's head
     head_x, head_y = game.snake[0]
     state[head_y, head_x] = 1
     return state
@@ -34,16 +32,20 @@ def make_border(game, state):
     return new_state
 
 
-def calculate_food_direction(game):
+def calculate_food_direction(game, numeric_value=True):
     """Calculate the direction and distance to the food from the snake's head."""
     head_x, head_y = game.snake[0]
     food_x, food_y = game.food
+    if numeric_value:
+        left = food_x - head_x
+        up = food_y - head_y
+        radius = math.sqrt((food_x - head_x) ** 2 + (food_y - head_y) ** 2)
+        theta = math.atan2(food_y - head_y, food_x - head_x)
+        return np.array([left, up, radius, theta], dtype=np.float32)
     left = food_x < head_x
     right = food_x > head_x
     up = food_y > head_y
     down = food_y < head_y
-    #     radius = math.sqrt((food_x - head_x)**2 + (food_y - head_y)**2)
-    #     theta = math.atan2(food_y - head_y, food_x - head_x)
     return np.array([left, right, up, down], dtype=np.float32)
 
 

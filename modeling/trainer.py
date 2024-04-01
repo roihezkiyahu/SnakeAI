@@ -40,6 +40,7 @@ class Trainer:
             optimizer=None,
             discount_rate=0.99,
             per_alpha=0,
+            use_scheduler=False
     ):
         self.use_ddqn = use_ddqn
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -69,6 +70,11 @@ class Trainer:
             self.prefix_name = prefix_name
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate) if not optimizer else optimizer
+        self.use_scheduler = use_scheduler
+        if self.use_scheduler:
+            self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='max', factor=0.1,
+                                                                        patience=1, threshold=0.01, verbose=True)
+
         self.criterion = nn.MSELoss()
         self.rewards_memory = []
         self.score_memory = []
@@ -239,10 +245,18 @@ class Trainer:
             max_reward = int(np.nanmax(relevant_rewards))
             mean_reward = int(np.nanmean(relevant_rewards))
             mean_score = np.nanmean(self.score_memory[-self.n_memory_episodes:])
+            med_score = np.nanmedian(self.score_memory[-self.n_memory_episodes:])
             print(
                 f"Episodes {episode + 1 - self.n_memory_episodes}-{episode + 1}: Min Reward: {min_reward},"
-                f" Max Reward: {max_reward}, Mean Reward: {mean_reward}, Mean Score: {mean_score}")
+                f" Max Reward: {max_reward}, Mean Reward: {mean_reward}, Mean Score: {mean_score},"
+                f" Median_score: {med_score}")
             self.rewards_memory = []
+
+            if len(self.score_memory) >= 5 * self.n_memory_episodes and self.use_scheduler:
+                recent_mean_score = np.nanmean(self.score_memory[-5*self.n_memory_episodes:])
+                self.scheduler.step(recent_mean_score)
+                for param_group in self.optimizer.param_groups:
+                    print("Current LR:", param_group['lr'])
 
     def train(self):
         for episode in range(self.episodes):
