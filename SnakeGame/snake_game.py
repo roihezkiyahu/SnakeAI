@@ -6,7 +6,7 @@ import time
 class SnakeGame:
     """A simple snake game using Pygame."""
 
-    def __init__(self, width=20, height=20, block_size=20, default_start_prob=0.25, max_food_distance=None):
+    def __init__(self, width=10, height=10, block_size=10, default_start_prob=0.25, max_food_distance=None):
         """
         Initialize the game window, snake, and food.
 

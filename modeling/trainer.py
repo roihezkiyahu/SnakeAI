@@ -244,12 +244,14 @@ class Trainer:
             min_reward = int(np.nanmin(relevant_rewards))
             max_reward = int(np.nanmax(relevant_rewards))
             mean_reward = int(np.nanmean(relevant_rewards))
-            mean_score = np.nanmean(self.score_memory[-self.n_memory_episodes:])
-            med_score = np.nanmedian(self.score_memory[-self.n_memory_episodes:])
+            relevant_scores = self.score_memory[-self.n_memory_episodes:]
+            mean_score = np.nanmean(relevant_scores)
+            med_score = np.nanmedian(relevant_scores)
+            max_score = np.nanmax(relevant_scores)
             print(
                 f"Episodes {episode + 1 - self.n_memory_episodes}-{episode + 1}: Min Reward: {min_reward},"
                 f" Max Reward: {max_reward}, Mean Reward: {mean_reward}, Mean Score: {mean_score},"
-                f" Median_score: {med_score}")
+                f" Median Score: {med_score}, Max Score: {max_score}")
             self.rewards_memory = []
 
             if len(self.score_memory) >= 5 * self.n_memory_episodes and self.use_scheduler:
