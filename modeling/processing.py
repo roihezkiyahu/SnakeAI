@@ -101,7 +101,7 @@ def preprocess_state(game, for_cnn=True, food_direction=True, add_death_indicato
         additional_features.extend(calculate_food_direction(game))
 
     if length_aware:
-        additional_features.extend(len(game.snake))
+        additional_features.extend(np.array([len(game.snake)], dtype=np.float32))
 
     if add_death_indicators:
         additional_features.extend(calculate_death_indicators(game))

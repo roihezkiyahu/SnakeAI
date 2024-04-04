@@ -14,7 +14,7 @@ class CNNDQNAgent(nn.Module):
         super(CNNDQNAgent, self).__init__()
         self.dueling = dueling
         self.conv_layers = nn.ModuleList([nn.Conv2d(**params) for params in conv_layers_params])
-        self.fc_input_dim = self._feature_size(input_shape) + int(reconnect_extra_features)*(input_shape-1)
+        self.fc_input_dim = self._feature_size(input_shape) + int(reconnect_extra_features)*(input_shape[0]-1)
 
         if dueling:
             self.value_layers = nn.ModuleList()
