@@ -87,8 +87,8 @@ def calculate_direction_indicators(game):
     return np.array([np.argmax(direction == ['UP', 'DOWN', 'LEFT', 'RIGHT'])], dtype=np.float32)
 
 
-def preprocess_state(game, for_cnn=True, food_direction=True, add_death_indicators=False,
-                     direction=True, clear_path_pixels=True):
+def preprocess_state(game, for_cnn=True, food_direction=True, add_death_indicators=True,
+                     direction=True, clear_path_pixels=False, length_aware=True):
     """Convert the game state into a 2D grid suitable for CNN input, with optional features."""
     state = initialize_state(game)
     state = mark_snake_on_state(game, state)
@@ -99,6 +99,9 @@ def preprocess_state(game, for_cnn=True, food_direction=True, add_death_indicato
 
     if food_direction:
         additional_features.extend(calculate_food_direction(game))
+
+    if length_aware:
+        additional_features.extend(len(game.snake))
 
     if add_death_indicators:
         additional_features.extend(calculate_death_indicators(game))
