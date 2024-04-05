@@ -266,7 +266,7 @@ class Trainer:
         if (episode + 1) % self.n_memory_episodes == 0:
             relevant_rewards = self.rewards_memory[-self.n_memory_episodes:]
             relevant_scores = self.score_memory[-self.n_memory_episodes:]
-            self.print_epoch_summary(self, episode, relevant_rewards, relevant_scores)
+            self.print_epoch_summary(episode, relevant_rewards, relevant_scores)
             self.rewards_memory = []
 
             if len(self.score_memory) >= 5 * self.n_memory_episodes and self.use_scheduler:
