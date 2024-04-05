@@ -317,9 +317,7 @@ class Trainer:
         self.game.default_start_prob = last_start_prob
         self.print_epoch_summary(episode, rewards, scores, True)
         if self.increasing_start_len:
-            self.max_init_len =np.max([np.nanmean(scores)+1, 2])
-            print(self.max_init_len)
-            print(type(self.max_init_len))
+            self.max_init_len =np.max([int(np.nanmean(scores))+1, 2])
         self.model.train()
 
         gif_filename = f"{self.prefix_name}val_episode_{episode + 1}_score_{viz_score}.gif"
