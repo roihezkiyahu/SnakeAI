@@ -238,17 +238,23 @@ class Trainer:
             image = self.visualizer.save_current_frame(game_action, probs)
             self.frames.append(image)
 
-    def print_epoch_summary(self, episode, relevant_rewards, relevant_scores):
+    def print_epoch_summary(self, episode, relevant_rewards, relevant_scores, validation=False):
         min_reward = int(np.nanmin(relevant_rewards))
         max_reward = int(np.nanmax(relevant_rewards))
         mean_reward = int(np.nanmean(relevant_rewards))
         mean_score = np.nanmean(relevant_scores)
         med_score = np.nanmedian(relevant_scores)
         max_score = np.nanmax(relevant_scores)
-        print(
-            f"Episodes {episode + 1 - self.n_memory_episodes}-{episode + 1}: Min Reward: {min_reward},"
-            f" Max Reward: {max_reward}, Mean Reward: {mean_reward}, Mean Score: {mean_score},"
-            f" Median Score: {med_score}, Max Score: {max_score}")
+        if not validation:
+            print(
+                f"Episodes {episode + 1 - self.n_memory_episodes}-{episode + 1}: Min Reward: {min_reward},"
+                f" Max Reward: {max_reward}, Mean Reward: {mean_reward}, Mean Score: {mean_score},"
+                f" Median Score: {med_score}, Max Score: {max_score}")
+        else:
+            print(
+                f"Episode {episode +1} Validation: Min Reward: {min_reward},"
+                f" Max Reward: {max_reward}, Mean Reward: {mean_reward}, Mean Score: {mean_score},"
+                f" Median Score: {med_score}, Max Score: {max_score}")
 
     def log_and_compile_gif(self, episode):
         if (episode + 1) % self.save_gif_every_x_epochs == 0:
@@ -292,7 +298,7 @@ class Trainer:
             print(" " * 100, end="\r")
             print(f"current validation reward: {total_reward}, current score: {score}", end="\r")
         self.game.default_start_prob = last_start_prob
-        self.print_epoch_summary(episode, rewards, scores)
+        self.print_epoch_summary(episode, rewards, scores, True)
 
 
     def train(self):
@@ -305,5 +311,5 @@ class Trainer:
 
             # Log performance statistics and compile GIF as configured
             self.log_and_compile_gif(episode)
-            if (episode+1)//self.validate_every_n_episodes:
+            if (episode+1) % self.validate_every_n_episodes == 0:
                 self.validate_score()
