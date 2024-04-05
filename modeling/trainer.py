@@ -285,8 +285,7 @@ class Trainer:
         self.game.default_start_prob = 1
         self.model.eval()
         for validation_episode in range(self.validate_episodes):
-            # self.init_game_max_food_distance(episode)
-            self.game.max_food_distance = None
+            self.init_game_max_food_distance(episode)
             self.game.reset_game()
             state, last_action, last_score, done = preprocess_state(self.game), self.game.snake_direction, 0, False
             viz_total_reward, score, viz_score, total_reward, steps = 0, 0, 0, 0, 0
