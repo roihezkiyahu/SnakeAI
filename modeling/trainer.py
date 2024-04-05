@@ -291,7 +291,7 @@ class Trainer:
             viz_total_reward, score, viz_score, total_reward, steps = 0, 0, 0, 0, 0
 
             with torch.no_grad():
-                while not done:
+                while not done and steps <= self.max_episode_len:
                     print("stuck 1", end="\r")
                     steps += 1
                     action, probs = self.choose_action(state, validation_episode, True)
