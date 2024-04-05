@@ -254,7 +254,7 @@ class Trainer:
             print(
                 f"Episode {episode +1} Validation: Min Reward: {min_reward},"
                 f" Max Reward: {max_reward}, Mean Reward: {mean_reward}, Mean Score: {mean_score},"
-                f" Median Score: {med_score}, Max Score: {max_score}")
+                f" Median Score: {med_score}, Max Score: {max_score}, N Validation Games: {len(relevant_scores)}")
 
     def log_and_compile_gif(self, episode):
         if (episode + 1) % self.save_gif_every_x_epochs == 0:
@@ -284,7 +284,6 @@ class Trainer:
             self.game.reset_game()
             state, last_action, last_score, done = preprocess_state(self.game), self.game.snake_direction, 0, False
             total_reward = 0
-            self.model.eval()
             with torch.no_grad():
                 while not done:
                     action, probs = self.choose_action(state, validation_episode, True)
@@ -298,10 +297,10 @@ class Trainer:
             scores.append(score)
             rewards.append(total_reward)
             print(" " * 100, end="\r")
-            print(f"current validation reward: {total_reward}, current score: {score}", end="\r")
+            print(f"current validation reward: {total_reward}, current score: {score},"
+                  f" n validation games: {len(score)}", end="\r")
         self.game.default_start_prob = last_start_prob
         self.print_epoch_summary(episode, rewards, scores, True)
-        self.model.train()
         if self.increasing_start_len:
             self.max_init_len = max(np.nanmean(scores)+1, 2)
 
