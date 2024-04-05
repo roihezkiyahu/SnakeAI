@@ -298,7 +298,8 @@ class Trainer:
             rewards.append(total_reward)
             print(" " * 100, end="\r")
             print(f"current validation reward: {total_reward}, current score: {score},"
-                  f" n validation games: {len(score)}", end="\r")
+                  f" n validation games: {len(scores)}", end="\r")
+        print()
         self.game.default_start_prob = last_start_prob
         self.print_epoch_summary(episode, rewards, scores, True)
         if self.increasing_start_len:
