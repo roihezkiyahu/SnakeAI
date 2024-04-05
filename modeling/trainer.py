@@ -288,7 +288,7 @@ class Trainer:
             self.init_game_max_food_distance(episode)
             self.game.reset_game()
             state, last_action, last_score, done = preprocess_state(self.game), self.game.snake_direction, 0, False
-            score, total_reward, steps = 0, 0, np.nan
+            viz_total_reward, score, viz_score, total_reward, steps = 0, 0, 0, 0, 0
 
             with torch.no_grad():
                 while not done:
@@ -307,10 +307,12 @@ class Trainer:
                     total_reward += reward
                     if validation_episode == 0:
                         self.visualize_and_save_game_state(self.save_gif_every_x_epochs-1, game_action, probs)
+                        viz_total_reward, viz_score = total_reward, score
+                    state, _ = self.update_state(done)
             scores.append(score)
             rewards.append(total_reward)
             print(" " * 100, end="\r")
-            print(f"current validation reward: {total_reward}, current score: {score},"
+            print(f"current validation reward: {viz_total_reward}, current score: {viz_score},"
                   f" n validation games: {len(scores)}", end="\r")
         self.game.default_start_prob = last_start_prob
         self.print_epoch_summary(episode, rewards, scores, True)
