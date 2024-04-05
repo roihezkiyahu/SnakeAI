@@ -299,6 +299,9 @@ class Trainer:
                     score, done = self.game.move()
                     if self.check_failed_init(steps, done, -1, game_action, probs, last_action):
                         total_reward = np.nan
+                        if validation_episode == 0:
+                            image = self.visualizer.save_current_frame(game_action, probs)
+                            self.frames.append(image)
                         break
 
                     reward = self.compute_reward(score, last_score, done, last_action != game_action,
