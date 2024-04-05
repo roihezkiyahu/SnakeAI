@@ -292,42 +292,36 @@ class Trainer:
 
             with torch.no_grad():
                 while not done and steps <= self.max_episode_len:
-                    print("stuck 1", end="\r")
                     steps += 1
                     action, probs = self.choose_action(state, validation_episode, True)
                     game_action = postprocess_action(action)
                     self.game.change_direction(game_action)
                     score, done = self.game.move()
-                    print("stuck 2", end="\r")
                     if self.check_failed_init(steps, done, -10 if not validation_episode == 0 else -1,
                                               game_action, probs, last_action):
                         total_reward = np.nan
-                        print("stuck 3", end="\r")
                         break
 
                     reward = self.compute_reward(score, last_score, done, last_action != game_action,
                                                  len(self.game.snake))
                     last_score = score
                     total_reward += reward
-                    print("stuck 4", end="\r")
                     if validation_episode == 0:
                         self.visualize_and_save_game_state(self.save_gif_every_x_epochs-1, game_action, probs)
                         viz_total_reward, viz_score = total_reward, score
-                        print("stuck 5", end="\r")
                     state, _ = self.update_state(done)
-                    print("stuck 6", end="\r")
             scores.append(score)
             rewards.append(total_reward)
             print(" " * 100, end="\r")
-            print(f"val episode: {validation_episode}, current validation reward: {viz_total_reward},"
-                  f" current score: {viz_score}, n validation games: {len(scores)}", end="\r")
+            print(f"val episode: {validation_episode}, current validation reward: {total_reward},"
+                  f" current score: {score}, n validation games: {len(scores)}", end="\r")
         self.game.default_start_prob = last_start_prob
         self.print_epoch_summary(episode, rewards, scores, True)
         if self.increasing_start_len:
             self.max_init_len = max(np.nanmean(scores)+1, 2)
         self.model.train()
 
-        gif_filename = f"{self.prefix_name}val_episode_{episode + 1}_score_{self.score_memory[-1]}.gif"
+        gif_filename = f"{self.prefix_name}val_episode_{episode + 1}_score_{viz_score}.gif"
         imageio.mimsave(gif_filename, self.frames, fps=5)
         print(f"GIF saved for episode {episode + 1}.")
         self.frames = []
