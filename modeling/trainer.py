@@ -288,13 +288,19 @@ class Trainer:
             self.init_game_max_food_distance(episode)
             self.game.reset_game()
             state, last_action, last_score, done = preprocess_state(self.game), self.game.snake_direction, 0, False
-            total_reward = 0
+            score, total_reward, steps = 0, 0, np.nan
+
             with torch.no_grad():
                 while not done:
+                    steps += 1
                     action, probs = self.choose_action(state, validation_episode, True)
                     game_action = postprocess_action(action)
                     self.game.change_direction(game_action)
                     score, done = self.game.move()
+                    if self.check_failed_init(steps, done, -1, game_action, probs, last_action):
+                        total_reward = np.nan
+                        break
+
                     reward = self.compute_reward(score, last_score, done, last_action != game_action,
                                                  len(self.game.snake))
                     last_score = score
