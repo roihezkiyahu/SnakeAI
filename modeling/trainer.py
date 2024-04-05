@@ -297,7 +297,8 @@ class Trainer:
                     game_action = postprocess_action(action)
                     self.game.change_direction(game_action)
                     score, done = self.game.move()
-                    if self.check_failed_init(steps, done, -10, game_action, probs, last_action):
+                    if self.check_failed_init(steps, done, -10 if not validation_episode == 0 else -1,
+                                              game_action, probs, last_action):
                         total_reward = np.nan
                         break
 
@@ -305,9 +306,9 @@ class Trainer:
                                                  len(self.game.snake))
                     last_score = score
                     total_reward += reward
-                    # if validation_episode == 0:
-                    #     self.visualize_and_save_game_state(self.save_gif_every_x_epochs-1, game_action, probs)
-                    #     viz_total_reward, viz_score = total_reward, score
+                    if validation_episode == 0:
+                        self.visualize_and_save_game_state(self.save_gif_every_x_epochs-1, game_action, probs)
+                        viz_total_reward, viz_score = total_reward, score
                     state, _ = self.update_state(done)
             scores.append(score)
             rewards.append(total_reward)
@@ -320,9 +321,9 @@ class Trainer:
             self.max_init_len = max(np.nanmean(scores)+1, 2)
         self.model.train()
 
-        # gif_filename = f"{self.prefix_name}val_episode_{episode + 1}_score_{self.score_memory[-1]}.gif"
-        # imageio.mimsave(gif_filename, self.frames, fps=5)
-        # print(f"GIF saved for episode {episode + 1}.")
+        gif_filename = f"{self.prefix_name}val_episode_{episode + 1}_score_{self.score_memory[-1]}.gif"
+        imageio.mimsave(gif_filename, self.frames, fps=5)
+        print(f"GIF saved for episode {episode + 1}.")
 
     def train(self):
         for episode in range(self.episodes):
