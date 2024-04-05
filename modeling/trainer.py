@@ -289,7 +289,6 @@ class Trainer:
             self.game.reset_game()
             state, last_action, last_score, done = preprocess_state(self.game), self.game.snake_direction, 0, False
             viz_total_reward, score, viz_score, total_reward, steps = 0, 0, 0, 0, 0
-
             with torch.no_grad():
                 while not done and steps <= self.max_episode_len:
                     steps += 1
