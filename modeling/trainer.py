@@ -292,24 +292,30 @@ class Trainer:
 
             with torch.no_grad():
                 while not done:
+                    print("stuck 1")
                     steps += 1
                     action, probs = self.choose_action(state, validation_episode, True)
                     game_action = postprocess_action(action)
                     self.game.change_direction(game_action)
                     score, done = self.game.move()
+                    print("stuck 2")
                     if self.check_failed_init(steps, done, -10 if not validation_episode == 0 else -1,
                                               game_action, probs, last_action):
                         total_reward = np.nan
+                        print("stuck 3")
                         break
 
                     reward = self.compute_reward(score, last_score, done, last_action != game_action,
                                                  len(self.game.snake))
                     last_score = score
                     total_reward += reward
+                    print("stuck 4")
                     if validation_episode == 0:
                         self.visualize_and_save_game_state(self.save_gif_every_x_epochs-1, game_action, probs)
                         viz_total_reward, viz_score = total_reward, score
+                        print("stuck 5")
                     state, _ = self.update_state(done)
+                    print("stuck 6")
             scores.append(score)
             rewards.append(total_reward)
             print(" " * 100, end="\r")
