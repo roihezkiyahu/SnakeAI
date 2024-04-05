@@ -22,7 +22,7 @@ class Trainer:
             learning_rate=5e-5,
             gamma=0.99,
             reward_params={'death': 0, 'move': 0, 'food': 0, "food_length_dependent": 1, "death_length_dependent": -1},
-            n_memory_episodes=500,
+            n_memory_episodes=100,
             prefix_name="",
             folder="",
             save_gif_every_x_epochs=500,
@@ -89,11 +89,11 @@ class Trainer:
         self.validate_episodes = validate_episodes
         self.increasing_start_len = increasing_start_len
 
-    def choose_action(self, state, episode):
+    def choose_action(self, state, episode, validation=False):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
         epsilon = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1. * episode / self.EPS_DECAY)
 
-        if torch.rand(1, device=self.device).item() < epsilon:
+        if torch.rand(1, device=self.device).item() < epsilon and not validation:
             return torch.randint(0, 4, (1,), device=self.device).item(), [0, 0, 0, 0]
         else:
             with torch.no_grad():
@@ -275,16 +275,16 @@ class Trainer:
                 for param_group in self.optimizer.param_groups:
                     print("Current LR:", param_group['lr'])
 
-    def validate_score(self):
+    def validate_score(self, episode):
         rewards, scores, total_reward, last_score, done = [], [], 0, 0, False
         last_start_prob = self.game.default_start_prob
         self.game.default_start_prob = 1
         state, last_action = preprocess_state(self.game), self.game.snake_direction
-        for episode in range(self.validate_episodes):
+        for validation_episode in range(self.validate_episodes):
             self.model.eval()
             with torch.no_grad():
                 while not done:
-                    action, probs = self.choose_action(state, episode)
+                    action, probs = self.choose_action(state, validation_episode, True)
                     game_action = postprocess_action(action)
                     self.game.change_direction(game_action)
                     score, done = self.game.move()
@@ -312,4 +312,4 @@ class Trainer:
             # Log performance statistics and compile GIF as configured
             self.log_and_compile_gif(episode)
             if (episode+1) % self.validate_every_n_episodes == 0:
-                self.validate_score()
+                self.validate_score(episode)
