@@ -305,7 +305,6 @@ class Trainer:
         if self.increasing_start_len:
             self.max_init_len = max(np.nanmean(scores)+1, 2)
 
-
     def train(self):
         for episode in range(self.episodes):
             total_reward, score = self.run_episode(episode)
