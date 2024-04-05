@@ -91,14 +91,18 @@ class Trainer:
 
     def choose_action(self, state, episode, validation=False):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-        epsilon = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1. * episode / self.EPS_DECAY)
-
-        if torch.rand(1, device=self.device).item() < epsilon and not validation:
-            return torch.randint(0, 4, (1,), device=self.device).item(), [0, 0, 0, 0]
-        else:
+        if validation:
             with torch.no_grad():
                 probs = self.model(state_tensor)
                 return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
+        else:
+            epsilon = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1. * episode / self.EPS_DECAY)
+            if torch.rand(1, device=self.device).item() < epsilon:
+                return torch.randint(0, 4, (1,), device=self.device).item(), [0, 0, 0, 0]
+            else:
+                with torch.no_grad():
+                    probs = self.model(state_tensor)
+                    return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
 
     def compute_loss(self, log_probs, rewards):
         discounted_rewards = self.discount_rewards(rewards, self.discount_rate)
@@ -279,6 +283,7 @@ class Trainer:
         rewards, scores, done = [], [], False
         last_start_prob = self.game.default_start_prob
         self.game.default_start_prob = 1
+        self.model.eval()
         for validation_episode in range(self.validate_episodes):
             self.game.max_food_distance = None
             self.game.reset_game()
@@ -299,11 +304,11 @@ class Trainer:
             print(" " * 100, end="\r")
             print(f"current validation reward: {total_reward}, current score: {score},"
                   f" n validation games: {len(scores)}", end="\r")
-        print()
         self.game.default_start_prob = last_start_prob
         self.print_epoch_summary(episode, rewards, scores, True)
         if self.increasing_start_len:
             self.max_init_len = max(np.nanmean(scores)+1, 2)
+        self.model.train()
 
     def train(self):
         for episode in range(self.episodes):
