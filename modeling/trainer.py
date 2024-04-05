@@ -324,6 +324,7 @@ class Trainer:
         gif_filename = f"{self.prefix_name}val_episode_{episode + 1}_score_{self.score_memory[-1]}.gif"
         imageio.mimsave(gif_filename, self.frames, fps=5)
         print(f"GIF saved for episode {episode + 1}.")
+        self.frames = []
 
     def train(self):
         for episode in range(self.episodes):
