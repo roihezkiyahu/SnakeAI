@@ -282,9 +282,9 @@ class Trainer:
     def validate_score(self, episode):
         rewards, scores, done = [], [], False
         last_start_prob = self.game.default_start_prob
-        self.game.default_start_prob = 1
-        self.model.eval()
         for validation_episode in range(self.validate_episodes):
+            self.model.eval()
+            self.game.default_start_prob = 1
             self.init_game_max_food_distance(episode)
             self.game.reset_game()
             state, last_action, last_score, done = preprocess_state(self.game), self.game.snake_direction, 0, False
@@ -315,7 +315,7 @@ class Trainer:
                         viz_total_reward, viz_score = total_reward, score
                         print("stuck 5", end="\r")
                     state, _ = self.update_state(done)
-                    print("stuck 6")
+                    print("stuck 6", end="\r")
             scores.append(score)
             rewards.append(total_reward)
             print(" " * 100, end="\r")
