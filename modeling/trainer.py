@@ -270,7 +270,7 @@ class Trainer:
                     print("Current LR:", param_group['lr'])
 
     def validate_score(self):
-        rewards, scores, total_reward, done = [], [], 0, False
+        rewards, scores, total_reward, last_score, done = [], [], 0, 0, False
         last_start_prob = self.game.default_start_prob
         self.game.default_start_prob = 1
         state, last_action = preprocess_state(self.game), self.game.snake_direction
@@ -297,8 +297,6 @@ class Trainer:
 
     def train(self):
         for episode in range(self.episodes):
-            if (episode+1)//self.validate_every_n_episodes:
-                self.validate_score()
             total_reward, score = self.run_episode(episode)
             print(" " * 100, end="\r")
             print(f"current reward: {total_reward}, current score: {score}", end="\r")
@@ -307,3 +305,5 @@ class Trainer:
 
             # Log performance statistics and compile GIF as configured
             self.log_and_compile_gif(episode)
+            if (episode+1)//self.validate_every_n_episodes:
+                self.validate_score()
