@@ -280,9 +280,11 @@ class Trainer:
         last_start_prob = self.game.default_start_prob
         self.game.default_start_prob = 1
         for validation_episode in range(self.validate_episodes):
-            self.model.eval()
+            self.init_game_max_food_distance(None)
+            self.game.reset_game()
             state, last_action, last_score, done = preprocess_state(self.game), self.game.snake_direction, 0, False
             total_reward = 0
+            self.model.eval()
             with torch.no_grad():
                 while not done:
                     action, probs = self.choose_action(state, validation_episode, True)
@@ -295,11 +297,13 @@ class Trainer:
                     total_reward += reward
             scores.append(score)
             rewards.append(total_reward)
-            total_reward = 0
             print(" " * 100, end="\r")
             print(f"current validation reward: {total_reward}, current score: {score}", end="\r")
         self.game.default_start_prob = last_start_prob
         self.print_epoch_summary(episode, rewards, scores, True)
+        self.model.train()
+        if self.increasing_start_len:
+            self.max_init_len = max(np.nanmean(scores)+1, 2)
 
 
     def train(self):
