@@ -276,12 +276,13 @@ class Trainer:
                     print("Current LR:", param_group['lr'])
 
     def validate_score(self, episode):
-        rewards, scores, total_reward, last_score, done = [], [], 0, 0, False
+        rewards, scores, done = [], [], False
         last_start_prob = self.game.default_start_prob
         self.game.default_start_prob = 1
-        state, last_action = preprocess_state(self.game), self.game.snake_direction
         for validation_episode in range(self.validate_episodes):
             self.model.eval()
+            state, last_action, last_score, done = preprocess_state(self.game), self.game.snake_direction, 0, False
+            total_reward = 0
             with torch.no_grad():
                 while not done:
                     action, probs = self.choose_action(state, validation_episode, True)
