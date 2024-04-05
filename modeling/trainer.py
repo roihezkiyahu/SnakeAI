@@ -292,7 +292,7 @@ class Trainer:
             print(" " * 100, end="\r")
             print(f"current validation reward: {total_reward}, current score: {score}", end="\r")
         self.game.default_start_prob = last_start_prob
-        self.print_epoch_summary(self, episode, rewards, scores)
+        self.print_epoch_summary(episode, rewards, scores)
 
 
     def train(self):
