@@ -19,28 +19,31 @@ class Trainer:
             model,
             clone_model,
             episodes=10000,
-            learning_rate=0.001,
+            learning_rate=5e-5,
             gamma=0.99,
-            reward_params={'death': -25, 'move': 1, 'food': 100},
+            reward_params={'death': 0, 'move': 0, 'food': 0, "food_length_dependent": 1, "death_length_dependent": -1},
             n_memory_episodes=500,
             prefix_name="",
             folder="",
-            save_gif_every_x_epochs=1000,
+            save_gif_every_x_epochs=500,
             batch_size=1024,
-            EPS_START=0.95,
-            EPS_END=0.05,
-            EPS_DECAY=1000,
-            TAU=0.005,
-            max_episode_len=5000,
-            close_food=1000,
+            EPS_START=1,
+            EPS_END=0,
+            EPS_DECAY=250,
+            TAU=5e-3,
+            max_episode_len=10000,
+            close_food=2500,
             close_food_episodes_skip=100,
-            use_ddqn=False,
+            use_ddqn=True,
             max_init_len=15,
             replaymemory=10000,
             optimizer=None,
             discount_rate=0.99,
-            per_alpha=0,
-            use_scheduler=False
+            per_alpha=0.6,
+            use_scheduler=False,
+            validate_every_n_episodes=500,
+            validate_episodes=100,
+            increasing_start_len=False,
     ):
         self.use_ddqn = use_ddqn
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -72,7 +75,7 @@ class Trainer:
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate) if not optimizer else optimizer
         self.use_scheduler = use_scheduler
         if self.use_scheduler:
-            self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='max', factor=0.1,
+            self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='max', factor=0.5,
                                                                         patience=1, threshold=0.01, verbose=True)
 
         self.criterion = nn.MSELoss()
@@ -82,6 +85,9 @@ class Trainer:
         self.memory = PERMemory(replaymemory, per_alpha)
         self.max_init_len = max_init_len
         self.discount_rate = discount_rate
+        self.validate_every_n_episodes = validate_every_n_episodes
+        self.validate_episodes = validate_episodes
+        self.increasing_start_len = increasing_start_len
 
     def choose_action(self, state, episode):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -232,6 +238,18 @@ class Trainer:
             image = self.visualizer.save_current_frame(game_action, probs)
             self.frames.append(image)
 
+    def print_epoch_summary(self, episode, relevant_rewards, relevant_scores):
+        min_reward = int(np.nanmin(relevant_rewards))
+        max_reward = int(np.nanmax(relevant_rewards))
+        mean_reward = int(np.nanmean(relevant_rewards))
+        mean_score = np.nanmean(relevant_scores)
+        med_score = np.nanmedian(relevant_scores)
+        max_score = np.nanmax(relevant_scores)
+        print(
+            f"Episodes {episode + 1 - self.n_memory_episodes}-{episode + 1}: Min Reward: {min_reward},"
+            f" Max Reward: {max_reward}, Mean Reward: {mean_reward}, Mean Score: {mean_score},"
+            f" Median Score: {med_score}, Max Score: {max_score}")
+
     def log_and_compile_gif(self, episode):
         if (episode + 1) % self.save_gif_every_x_epochs == 0:
             gif_filename = f"{self.prefix_name}episode_{episode + 1}_score_{self.score_memory[-1]}.gif"
@@ -241,17 +259,8 @@ class Trainer:
 
         if (episode + 1) % self.n_memory_episodes == 0:
             relevant_rewards = self.rewards_memory[-self.n_memory_episodes:]
-            min_reward = int(np.nanmin(relevant_rewards))
-            max_reward = int(np.nanmax(relevant_rewards))
-            mean_reward = int(np.nanmean(relevant_rewards))
             relevant_scores = self.score_memory[-self.n_memory_episodes:]
-            mean_score = np.nanmean(relevant_scores)
-            med_score = np.nanmedian(relevant_scores)
-            max_score = np.nanmax(relevant_scores)
-            print(
-                f"Episodes {episode + 1 - self.n_memory_episodes}-{episode + 1}: Min Reward: {min_reward},"
-                f" Max Reward: {max_reward}, Mean Reward: {mean_reward}, Mean Score: {mean_score},"
-                f" Median Score: {med_score}, Max Score: {max_score}")
+            self.print_epoch_summary(self, episode, relevant_rewards, relevant_scores)
             self.rewards_memory = []
 
             if len(self.score_memory) >= 5 * self.n_memory_episodes and self.use_scheduler:
@@ -260,8 +269,36 @@ class Trainer:
                 for param_group in self.optimizer.param_groups:
                     print("Current LR:", param_group['lr'])
 
+    def validate_score(self):
+        rewards, scores, total_reward, done = [], [], 0, False
+        last_start_prob = self.game.default_start_prob
+        self.game.default_start_prob = 1
+        state, last_action = preprocess_state(self.game), self.game.snake_direction
+        for episode in range(self.validate_episodes):
+            self.model.eval()
+            with torch.no_grad():
+                while not done:
+                    action, probs = self.choose_action(state, episode)
+                    game_action = postprocess_action(action)
+                    self.game.change_direction(game_action)
+                    score, done = self.game.move()
+                    reward = self.compute_reward(score, last_score, done, last_action != game_action,
+                                                 len(self.game.snake))
+                    last_score = score
+                    total_reward += reward
+            scores.append(score)
+            rewards.append(total_reward)
+            total_reward = 0
+            print(" " * 100, end="\r")
+            print(f"current validation reward: {total_reward}, current score: {score}", end="\r")
+        self.game.default_start_prob = last_start_prob
+        self.print_epoch_summary(self, episode, rewards, scores)
+
+
     def train(self):
         for episode in range(self.episodes):
+            if (episode+1)//self.validate_every_n_episodes:
+                self.validate_score()
             total_reward, score = self.run_episode(episode)
             print(" " * 100, end="\r")
             print(f"current reward: {total_reward}, current score: {score}", end="\r")
