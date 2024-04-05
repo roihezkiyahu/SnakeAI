@@ -280,7 +280,7 @@ class Trainer:
                     print("Current LR:", param_group['lr'])
 
     def validate_score(self, episode):
-        rewards, scores, done = [], [], False
+        rewards, scores, done, viz_total_reward, viz_score = [], [], False, 0, 0
         last_start_prob = self.game.default_start_prob
         for validation_episode in range(self.validate_episodes):
             self.model.eval()
@@ -288,7 +288,7 @@ class Trainer:
             self.init_game_max_food_distance(episode)
             self.game.reset_game()
             state, last_action, last_score, done = preprocess_state(self.game), self.game.snake_direction, 0, False
-            viz_total_reward, score, viz_score, total_reward, steps = 0, 0, 0, 0, 0
+            score, total_reward, steps = 0, 0, 0
             with torch.no_grad():
                 while not done and steps <= self.max_episode_len:
                     steps += 1
@@ -296,7 +296,7 @@ class Trainer:
                     game_action = postprocess_action(action)
                     self.game.change_direction(game_action)
                     score, done = self.game.move()
-                    if self.check_failed_init(steps, done, -10 if not validation_episode == 0 else -1,
+                    if self.check_failed_init(steps, done, -10 if validation_episode != 0 else -1,
                                               game_action, probs, last_action):
                         total_reward = np.nan
                         break
@@ -312,7 +312,7 @@ class Trainer:
             scores.append(score)
             rewards.append(total_reward)
             print(" " * 100, end="\r")
-            print(f"val episode: {validation_episode}, current validation reward: {total_reward},"
+            print(f"val episode: {validation_episode+1}, current validation reward: {total_reward},"
                   f" current score: {score}, n validation games: {len(scores)}", end="\r")
         self.game.default_start_prob = last_start_prob
         self.print_epoch_summary(episode, rewards, scores, True)
