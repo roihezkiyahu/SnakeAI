@@ -11,6 +11,7 @@ import torch.nn.functional as F
 import random
 import imageio
 import matplotlib.pyplot as plt
+import csv
 
 class Trainer:
     def __init__(
@@ -76,7 +77,7 @@ class Trainer:
         self.use_scheduler = use_scheduler
         if self.use_scheduler:
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='max', factor=0.5,
-                                                                        patience=1, threshold=0.01, verbose=True)
+                                                                        patience=3, threshold=0.01, verbose=True)
 
         self.criterion = nn.MSELoss()
         self.rewards_memory = []
@@ -88,6 +89,7 @@ class Trainer:
         self.validate_every_n_episodes = validate_every_n_episodes
         self.validate_episodes = validate_episodes
         self.increasing_start_len = increasing_start_len
+        self.validation_log = []
 
     def choose_action(self, state, episode, validation=False):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -199,10 +201,20 @@ class Trainer:
             return True
         return False
 
-    def run_episode(self, episode):
-        self.init_game_max_food_distance(episode)
-        self.game.reset_game(random.randint(2, self.max_init_len))
+    def init_episode(self, episode, validation=False):
+        if validation:
+            self.model.eval()
+            self.game.default_start_prob = 1
+            self.init_game_max_food_distance(episode)
+            self.game.reset_game()
+        else:
+            self.init_game_max_food_distance(episode)
+            self.game.reset_game(random.randint(2, self.max_init_len))
         state = preprocess_state(self.game)
+        return state
+
+    def run_episode(self, episode):
+        state = self.init_episode(episode)
         done, last_score, steps, score, rewards, last_action = False, 0, 0, np.nan, [], self.game.snake_direction
 
         while not done and steps <= self.max_episode_len:
@@ -273,57 +285,93 @@ class Trainer:
             self.print_epoch_summary(episode, relevant_rewards, relevant_scores)
             self.rewards_memory = []
 
-            if len(self.score_memory) >= 5 * self.n_memory_episodes and self.use_scheduler:
-                recent_mean_score = np.nanmean(self.score_memory[-5*self.n_memory_episodes:])
-                self.scheduler.step(recent_mean_score)
-                for param_group in self.optimizer.param_groups:
-                    print("Current LR:", param_group['lr'])
+    def run_validation_move(self, steps, state, validation_episode, last_action, total_reward, last_score,
+                            viz_total_reward, viz_score):
+        action, probs = self.choose_action(state, validation_episode, True)
+        game_action = postprocess_action(action)
+        self.game.change_direction(game_action)
+        score, done = self.game.move()
+        if self.check_failed_init(steps, done, -10 if validation_episode != 0 else -1, game_action, probs, last_action):
+            total_reward = np.nan
+            return True, total_reward, score, state, viz_total_reward, viz_score
+        reward = self.compute_reward(score, last_score, done, last_action != game_action, len(self.game.snake))
+        total_reward += reward
+        if validation_episode == 0:
+            self.visualize_and_save_game_state(self.save_gif_every_x_epochs - 1, game_action, probs)
+            viz_total_reward, viz_score = total_reward, score
+        state, _ = self.update_state(done)
+        return done, total_reward, score, state, viz_total_reward, viz_score
+
+    def pp_val_episode(self, scores, score, rewards, total_reward, validation_episode):
+        scores.append(score)
+        rewards.append(total_reward)
+        print(" " * 100, end="\r")
+        print(f"val episode: {validation_episode + 1}, current validation reward: {total_reward},"
+              f" current score: {score}, n validation games: {len(scores)}", end="\r")
+        return scores, rewards
+
+    def save_validation_gif(self, episode, viz_score):
+        gif_filename = f"{self.prefix_name}val_episode_{episode + 1}_score_{viz_score}.gif"
+        imageio.mimsave(gif_filename, self.frames, fps=5)
+        print(f"GIF saved for episode {episode + 1}.")
+        self.frames = []
 
     def validate_score(self, episode):
         rewards, scores, done, viz_total_reward, viz_score = [], [], False, 0, 0
         last_start_prob = self.game.default_start_prob
         for validation_episode in range(self.validate_episodes):
-            self.model.eval()
-            self.game.default_start_prob = 1
-            self.init_game_max_food_distance(episode)
-            self.game.reset_game()
-            state, last_action, last_score, done = preprocess_state(self.game), self.game.snake_direction, 0, False
-            score, total_reward, steps = 0, 0, 0
+            state = self.init_episode(episode, validation=True)
+            last_action, last_score, score, total_reward, steps, done = self.game.snake_direction, 0, 0, 0, 0, False
             with torch.no_grad():
                 while not done and steps <= self.max_episode_len:
                     steps += 1
-                    action, probs = self.choose_action(state, validation_episode, True)
-                    game_action = postprocess_action(action)
-                    self.game.change_direction(game_action)
-                    score, done = self.game.move()
-                    if self.check_failed_init(steps, done, -10 if validation_episode != 0 else -1,
-                                              game_action, probs, last_action):
-                        total_reward = np.nan
-                        break
+                    run_res = self.run_validation_move(steps, state, validation_episode, last_action, total_reward,
+                                                       last_score, viz_total_reward, viz_score)
+                    done, total_reward, score, state, viz_total_reward, viz_score = run_res
+                scores, rewards = self.pp_val_episode(scores, score, rewards, total_reward, validation_episode)
+        self.on_validation_end(last_start_prob, episode, rewards, scores, viz_score)
 
-                    reward = self.compute_reward(score, last_score, done, last_action != game_action,
-                                                 len(self.game.snake))
-                    last_score = score
-                    total_reward += reward
-                    if validation_episode == 0:
-                        self.visualize_and_save_game_state(self.save_gif_every_x_epochs-1, game_action, probs)
-                        viz_total_reward, viz_score = total_reward, score
-                    state, _ = self.update_state(done)
-            scores.append(score)
-            rewards.append(total_reward)
-            print(" " * 100, end="\r")
-            print(f"val episode: {validation_episode+1}, current validation reward: {total_reward},"
-                  f" current score: {score}, n validation games: {len(scores)}", end="\r")
+    def save_validation_csv(self):
+        csv_filename = f"{self.prefix_name}validation_summary.csv"
+        with open(csv_filename, 'w', newline='') as csvfile:
+            fieldnames = ['episode', 'Mean Score', 'Median Score']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+            writer.writeheader()
+            for log_entry in self.validation_log:
+                writer.writerow(log_entry)
+        print(f"Validation summary saved to {csv_filename}")
+
+    def plot_validation_convergence(self):
+        episodes = [log_entry['episode'] for log_entry in self.validation_log]
+        mean_scores = [log_entry['Mean Score'] for log_entry in self.validation_log]
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(episodes, mean_scores, marker='o', linestyle='-', color='b')
+        plt.title('Validation Score Convergence')
+        plt.xlabel('Episode')
+        plt.ylabel('Mean Score')
+        plt.grid(True)
+        plot_filename = f"{self.prefix_name}validation_convergence.png"
+        plt.savefig(plot_filename)
+        plt.close()  # Close the figure to free memory
+        print(f"Convergence plot saved to {plot_filename}")
+
+    def on_validation_end(self, last_start_prob, episode, rewards, scores, viz_score):
         self.game.default_start_prob = last_start_prob
         self.print_epoch_summary(episode, rewards, scores, True)
+        mean_score = np.nanmean(scores)
         if self.increasing_start_len:
-            self.max_init_len =np.max([int(np.nanmean(scores))+1, 2])
+            self.max_init_len = np.max([int(mean_score)+1, 2])
         self.model.train()
-
-        gif_filename = f"{self.prefix_name}val_episode_{episode + 1}_score_{viz_score}.gif"
-        imageio.mimsave(gif_filename, self.frames, fps=5)
-        print(f"GIF saved for episode {episode + 1}.")
-        self.frames = []
+        self.save_validation_gif(episode, viz_score)
+        if self.use_scheduler:
+            self.scheduler.step(np.nanmean(scores))
+            for param_group in self.optimizer.param_groups:
+                print("Current LR:", param_group['lr'])
+        self.validation_log.append({"episode": episode, "Mean Score": mean_score, "Median Score": np.nanmedian(scores)})
+        self.save_validation_csv()
+        self.plot_validation_convergence()
 
     def train(self):
         for episode in range(self.episodes):
