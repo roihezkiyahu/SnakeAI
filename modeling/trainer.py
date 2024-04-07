@@ -205,7 +205,7 @@ class Trainer:
         if validation:
             self.model.eval()
             self.game.default_start_prob = 1
-            self.init_game_max_food_distance(episode)
+            self.game.max_food_distance = None
             self.game.reset_game()
         else:
             self.init_game_max_food_distance(episode)
