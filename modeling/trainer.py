@@ -45,6 +45,7 @@ class Trainer:
             validate_every_n_episodes=500,
             validate_episodes=100,
             increasing_start_len=False,
+            patience=3
     ):
         self.use_ddqn = use_ddqn
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -77,7 +78,7 @@ class Trainer:
         self.use_scheduler = use_scheduler
         if self.use_scheduler:
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='max', factor=0.5,
-                                                                        patience=3, threshold=0.01, verbose=True)
+                                                                        patience=patience, threshold=0.1, verbose=True)
 
         self.criterion = nn.MSELoss()
         self.rewards_memory = []
@@ -362,7 +363,7 @@ class Trainer:
         self.print_epoch_summary(episode, rewards, scores, True)
         mean_score = np.nanmean(scores)
         if self.increasing_start_len:
-            self.max_init_len = np.max([int(mean_score)+1, 2])
+            self.max_init_len = np.max([int(mean_score*1.5)+1, 2])
         self.model.train()
         self.save_validation_gif(episode, viz_score)
         if self.use_scheduler:
