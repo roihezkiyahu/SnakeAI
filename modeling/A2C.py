@@ -72,7 +72,7 @@ class A2CAgent(Trainer):
         dones = np.empty((batch_size,), dtype=bool)
         rewards, values = np.empty((2, batch_size), dtype=np.float32)
         observations = np.empty((batch_size,) + (self.game.width, self.game.height), dtype=np.float32)
-        obs = self.init_episode()
+        obs = self.init_episode(episode_count)
         last_action = self.game.snake_direction
         total_reward = 0
         steps = 1
@@ -95,7 +95,7 @@ class A2CAgent(Trainer):
                 obs, rewards[i], dones[i], _ = preprocess_state(self.game), reward, done
 
                 if dones[i]:
-                    obs = self.init_episode()
+                    obs = self.init_episode(episode_count)
 
                 if (episode_count + 1) % self.save_gif_every_x_epochs == 0:
                     self.visualize_and_save_game_state(episode_count, game_action, policy)
