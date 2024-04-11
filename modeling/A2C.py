@@ -41,16 +41,17 @@ class A2CAgent(Trainer):
                  validate_episodes=100,
                  increasing_start_len=False,
                  patience=3,
-                 entropy_coefficient = 0.01
+                 entropy_coefficient=0.01
                  ):
         super().__init__(self, game, value_network, actor_network, gamma=gamma, reward_params=reward_params,
                          max_init_len=max_init_len, close_food=close_food,
                          close_food_episodes_skip=close_food_episodes_skip, increasing_start_len=increasing_start_len,
                          n_memory_episodes=n_memory_episodes, prefix_name=prefix_name, folder=folder,
                          save_gif_every_x_epochs=save_gif_every_x_epochs, batch_size=batch_size,
-                         max_episode_len=max_episode_len)
-        self.value_network = value_network
-        self.actor_network = actor_network
+                         max_episode_len=max_episode_len, discount_rate=discount_rate,
+                         validate_every_n_episodes=validate_every_n_episodes, validate_episodes=validate_episodes)
+        self.value_network = value_network.to(self.device)
+        self.actor_network = actor_network.to(self.device)
         self.value_optimizer = optim.Adam(self.value_network.parameters(), lr=value_network_lr)
         self.actor_optimizer = optim.Adam(self.actor_network.parameters(), lr=actor_network_lr)
         self.entropy_coefficient = entropy_coefficient
@@ -71,16 +72,16 @@ class A2CAgent(Trainer):
         dones = np.empty((batch_size,), dtype=np.bool)
         rewards, values = np.empty((2, batch_size), dtype=np.float)
         observations = np.empty((batch_size,) + (self.game.width, self.game.height), dtype=np.float)
-        observation = self.init_episode()
+        obs = self.init_episode()
         last_action = self.game.snake_direction
         total_reward = 0
         steps = 1
 
         for epoch in range(epochs):
             for i in range(batch_size):
-                observations[i] = observation
-                values[i] = self.value_network(torch.tensor(observation, dtype=torch.float)).detach().numpy()
-                policy = self.actor_network(torch.tensor(observation, dtype=torch.float))
+                observations[i] = obs
+                values[i] = self.value_network(torch.tensor(obs, dtype=torch.float).to(self.device)).detach().numpy()
+                policy = self.actor_network(torch.tensor(obs, dtype=torch.float).to(self.device))
                 actions[i] = torch.multinomial(policy, 1).detach().numpy()
                 game_action = postprocess_action(actions[i])
                 self.game.change_direction(game_action)
@@ -91,10 +92,10 @@ class A2CAgent(Trainer):
                 reward = self.compute_reward(score, last_score, done, last_action != game_action, len(self.game.snake))
                 last_score = score
                 total_reward += reward
-                observation, rewards[i], dones[i], _ = preprocess_state(self.game), reward, done
+                obs, rewards[i], dones[i], _ = preprocess_state(self.game), reward, done
 
                 if dones[i]:
-                    observation = self.init_episode()
+                    obs = self.init_episode()
 
                 if (episode_count + 1) % self.save_gif_every_x_epochs == 0:
                     self.visualize_and_save_game_state(episode_count, game_action, policy)
@@ -113,7 +114,7 @@ class A2CAgent(Trainer):
             if dones[-1]:
                 next_value = 0
             else:
-                next_value = self.value_network(torch.tensor(observation, dtype=torch.float)).detach().numpy()[0]
+                next_value = self.value_network(torch.tensor(obs, dtype=torch.float)).detach().numpy()[0]
 
             # Compute returns and advantages
             returns, advantages = self._returns_advantages(rewards, dones, values, next_value)
@@ -128,20 +129,20 @@ class A2CAgent(Trainer):
         print(f'The trainnig was done over a total of {episode_count} episodes')
 
     def optimize_model(self, observations, actions, returns, advantages):
-        actions = F.one_hot(torch.tensor(actions), self.env.action_space.n).to(torch.float)
-        returns = torch.tensor(returns[:, None], dtype=torch.float)
-        advantages = torch.tensor(advantages, dtype=torch.float)
-        observations = torch.tensor(observations, dtype=torch.float)
+        actions = F.one_hot(torch.tensor(actions), self.env.action_space.n).to(torch.float).to(self.device)
+        returns = torch.tensor(returns[:, None], dtype=torch.float).to(self.device)
+        advantages = torch.tensor(advantages, dtype=torch.float).to(self.device)
+        observations = torch.tensor(observations, dtype=torch.float).to(self.device)
 
         logits, values = self.model(observations)
 
-        value_loss = F.mse_loss(values.squeeze(), returns.squeeze())
+        value_loss = F.mse_loss(values.squeeze(), returns.squeeze()).to(self.device)
 
         probs = F.softmax(logits, dim=-1)
         action_log_probs = torch.log(torch.sum(probs * actions, dim=1))
-        actor_loss = -(action_log_probs * advantages).mean()
+        actor_loss = -(action_log_probs * advantages).mean().to(self.device)
 
-        entropy = -(probs * torch.log(probs)).sum(-1).mean()
+        entropy = -(probs * torch.log(probs)).sum(-1).mean().to(self.device)
 
         total_loss = value_loss + actor_loss - self.entropy_coefficient * entropy
 
