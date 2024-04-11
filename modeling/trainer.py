@@ -233,17 +233,15 @@ class Trainer:
             rewards.append(reward)
 
             next_state, next_state_tensor = self.update_state(done)
-            self.memory.push(torch.tensor(state, device=self.device),
-                             torch.tensor([action], device=self.device),
+            self.memory.push(torch.tensor(state, device=self.device), torch.tensor([action], device=self.device),
                              next_state_tensor, torch.tensor([reward], device=self.device))
             state = next_state
             self.optimize_model()
 
-            target_net_state_dict, policy_net_state_dict = self.target_net.state_dict(), self.model.state_dict()
-            for key in policy_net_state_dict:
-                target_net_state_dict[key] = policy_net_state_dict[key] * self.TAU + target_net_state_dict[key] * (
-                            1 - self.TAU)
-            self.target_net.load_state_dict(target_net_state_dict)
+            target_dict, policy_dict = self.target_net.state_dict(), self.model.state_dict()
+            for key in policy_dict:
+                target_dict[key] = policy_dict[key] * self.TAU + target_dict[key] * (1 - self.TAU)
+            self.target_net.load_state_dict(target_dict)
 
             if (episode + 1) % self.save_gif_every_x_epochs == 0:
                 self.visualize_and_save_game_state(episode, game_action, probs)

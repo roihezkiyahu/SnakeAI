@@ -85,3 +85,42 @@ class DQN(nn.Module):
         return self.layer4(x)
 
 
+class ActorCritic(nn.Module):
+    def __init__(self, input_shape, action_size, conv_layers_params, fc_layers, mode='actor'):
+        super(ActorCritic, self).__init__()
+
+        self.mode = mode
+        self.conv_layers = nn.ModuleList([nn.Conv2d(**params) for params in conv_layers_params])
+        self.fc_input_dim = self._feature_size(input_shape)
+
+        self.fc_layers = nn.ModuleList()
+        for i, units in enumerate(fc_layers):
+            in_features = self.fc_input_dim if i == 0 else fc_layers[i - 1]
+            self.fc_layers.append(nn.Linear(in_features, units))
+
+        if mode == 'actor':
+            self.output_layer = nn.Linear(fc_layers[-1], action_size)
+        else:
+            self.output_layer = nn.Linear(fc_layers[-1], 1)
+
+    def forward(self, x):
+        x = self._apply_layers(self.conv_layers, x)
+        x = x.view(x.size(0), -1)
+        x = self._apply_layers(self.fc_layers, x)
+        x = self.output_layer(x)
+
+        if self.mode == 'actor':
+            return F.softmax(x, dim=-1)
+        else:
+            return x
+
+    def _apply_layers(self, layers, x):
+        for layer in layers:
+            x = F.relu(layer(x))
+        return x
+
+    def _feature_size(self, input_shape):
+        with torch.no_grad():
+            x = torch.zeros(1, *input_shape)
+            x = self._apply_layers(self.conv_layers, x)
+            return x.view(1, -1).size(1)
