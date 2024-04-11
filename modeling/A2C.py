@@ -43,7 +43,7 @@ class A2CAgent(Trainer):
                  patience=3,
                  entropy_coefficient=0.01
                  ):
-        super().__init__(self, game, value_network, actor_network, gamma=gamma, reward_params=reward_params,
+        super().__init__(game, value_network, actor_network, gamma=gamma, reward_params=reward_params,
                          max_init_len=max_init_len, close_food=close_food,
                          close_food_episodes_skip=close_food_episodes_skip, increasing_start_len=increasing_start_len,
                          n_memory_episodes=n_memory_episodes, prefix_name=prefix_name, folder=folder,
@@ -100,6 +100,9 @@ class A2CAgent(Trainer):
                 if (episode_count + 1) % self.save_gif_every_x_epochs == 0:
                     self.visualize_and_save_game_state(episode_count, game_action, policy)
                 steps +=1
+                if steps >= self.max_episode_len:
+                    done = True
+                    obs = self.init_episode()
                 if done:
                     print(" " * 100, end="\r")
                     print(f"current reward: {total_reward}, current score: {score}", end="\r")
