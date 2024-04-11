@@ -69,7 +69,7 @@ class A2CAgent(Trainer):
     def training_batch(self, epochs, batch_size):
         episode_count = 0
         actions = np.empty((batch_size,), dtype=np.int32)
-        dones = np.empty((batch_size,), dtype=np.bool)
+        dones = np.empty((batch_size,), dtype=bool)
         rewards, values = np.empty((2, batch_size), dtype=np.float32)
         observations = np.empty((batch_size,) + (self.game.width, self.game.height), dtype=np.float32)
         obs = self.init_episode()
