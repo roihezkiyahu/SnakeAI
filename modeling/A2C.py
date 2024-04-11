@@ -41,7 +41,8 @@ class A2CAgent(Trainer):
                  validate_episodes=100,
                  increasing_start_len=False,
                  patience=3,
-                 entropy_coefficient=0.01
+                 entropy_coefficient=0.01,
+                 n_channels=11,
                  ):
         super().__init__(game, value_network, actor_network, gamma=gamma, reward_params=reward_params,
                          max_init_len=max_init_len, close_food=close_food,
@@ -55,6 +56,7 @@ class A2CAgent(Trainer):
         self.value_optimizer = optim.Adam(self.value_network.parameters(), lr=value_network_lr)
         self.actor_optimizer = optim.Adam(self.actor_network.parameters(), lr=actor_network_lr)
         self.entropy_coefficient = entropy_coefficient
+        self.n_channels = n_channels
 
     def _returns_advantages(self, rewards, dones, values, next_value):
         returns = np.append(np.zeros_like(rewards), [next_value], axis=0)
@@ -71,7 +73,7 @@ class A2CAgent(Trainer):
         actions = np.empty((batch_size,), dtype=np.int32)
         dones = np.empty((batch_size,), dtype=bool)
         rewards, values = np.empty((2, batch_size), dtype=np.float32)
-        observations = np.empty((batch_size,) + (self.game.width, self.game.height), dtype=np.float32)
+        observations = np.empty((batch_size,) + (self.n_channels, self.game.width, self.game.height), dtype=np.float32)
         obs = self.init_episode(episode_count)
         last_action = self.game.snake_direction
         total_reward = 0
