@@ -98,6 +98,106 @@ class A2CDebugger:
 
         plt.close()
 
+import torch
+import torch.optim as optim
+import numpy as np
+from processing import preprocess_state, postprocess_action
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+from trainer import Trainer
+from SnakeGame.snake_game import SnakeGame
+from models import ActorCritic
+import matplotlib
+from torch.distributions import Categorical
+try:
+    matplotlib.use('TkAgg')
+except:
+    print("no TkAgg")
+
+
+class A2CDebugger:
+    def __init__(self, agent):
+        self.agent = agent
+        self.loss_history = []
+        self.gradient_norms_actor = []
+        self.gradient_norms_critic = []
+        self.policy_entropy = []
+        self.score_history = []
+        self.value_outputs = []
+
+    def track_loss(self, actor_loss, value_loss):
+        self.loss_history.append((actor_loss.item(), value_loss.item()))
+
+    def track_gradients(self, actor=False):
+        actor_gradients = []
+        critic_gradients = []
+        for p in self.agent.actor_network.parameters():
+            if p.grad is not None:
+                actor_gradients.append(p.grad.norm().item())
+        for p in self.agent.value_network.parameters():
+            if p.grad is not None:
+                critic_gradients.append(p.grad.norm().item())
+        if actor:
+            self.gradient_norms_actor.append(np.mean(actor_gradients))
+        else:
+            self.gradient_norms_critic.append(np.mean(critic_gradients))
+
+    def track_policy_entropy(self, entropy):
+        self.policy_entropy.append(entropy)
+
+    def track_scores(self, score):
+        self.score_history.extend(score)
+
+    def track_value_outputs(self):
+        with torch.no_grad():
+            for observation in self.agent.env.observations:
+                value = self.agent.value_network(torch.tensor(observation, dtype=torch.float)).item()
+                self.value_outputs.append(value)
+
+    def plot_diagnostics(self, epoch):
+        epochs = range(len(self.loss_history))
+        actor_losses, value_losses = zip(*self.loss_history)
+
+        plt.figure(figsize=(15, 10))
+
+        plt.subplot(221)
+        plt.plot(epochs, actor_losses, label='Actor Loss')
+        plt.plot(epochs, value_losses, label='Critic Loss')
+        plt.title('Losses over Time')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
+
+        plt.subplot(222)
+        actor_grads, critic_grads = self.gradient_norms_actor, self.gradient_norms_critic
+        plt.plot(epochs, actor_grads, label='Actor Gradient Norms')
+        plt.plot(epochs, critic_grads, label='Critic Gradient Norms')
+        plt.title('Gradient Norms over Time')
+        plt.xlabel('Epoch')
+        plt.ylabel('Gradient Norm')
+        plt.legend()
+
+        plt.subplot(223)
+        plt.plot(epochs, self.policy_entropy)
+        plt.title('Policy Entropy')
+        plt.xlabel('Epoch')
+        plt.ylabel('Entropy')
+
+        plt.subplot(224)
+        plt.plot(range(1, len(self.score_history) + 1), self.score_history)
+        plt.title('Rewards History')
+        plt.xlabel('Game Number')
+        plt.ylabel('Score')
+
+        plt.tight_layout()
+
+        # Save the figure
+        filename = f"{self.agent.prefix_name}_{epoch}_diagnostics.png"
+        plt.savefig(filename)
+        print(f"Saved diagnostics to {filename}")
+
+        plt.close()
+
 class A2CAgent(Trainer):
 
     def __init__(self, game, value_network, actor_network, value_network_lr=1e-4, actor_network_lr=1e-4,
@@ -168,9 +268,9 @@ class A2CAgent(Trainer):
             for i in range(batch_size):
                 observations[i] = obs
                 obs_torch = torch.tensor(obs, dtype=torch.float).unsqueeze(0).to(self.device)
-                values[i] = self.value_network(obs_torch).detach().numpy()
+                values[i] = self.value_network(obs_torch).cpu().detach().numpy()
                 policy = self.actor_network(obs_torch)
-                actions[i] = Categorical(logits=policy).sample().detach().numpy()
+                actions[i] = Categorical(logits=policy).sample().cpu().detach().numpy()
                 game_action = postprocess_action(actions[i])
                 self.game.change_direction(game_action)
                 score, done = self.game.move()
@@ -210,7 +310,7 @@ class A2CAgent(Trainer):
             if dones[-1]:
                 next_value = [0]
             else:
-                next_value = self.value_network(obs_torch).detach().cpu().numpy()[0]
+                next_value = self.value_network(obs_torch).cpu().detach().numpy()[0]
             returns, advantages = self._returns_advantages(rewards, dones, values, next_value)
             self.optimize_model(observations, actions, returns, advantages)
 
@@ -251,7 +351,7 @@ class A2CAgent(Trainer):
         self.actor_optimizer.step()
 
         self.debugger.track_loss(actor_loss, value_loss)
-        self.debugger.track_policy_entropy(entropy.detach().numpy())
+        self.debugger.track_policy_entropy(entropy.cpu().detach().numpy())
 
 if __name__ == "__main__":
     conv_layers_params = [
