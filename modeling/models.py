@@ -110,7 +110,8 @@ class ActorCritic(nn.Module):
         x = self.output_layer(x)
 
         if self.mode == 'actor':
-            return F.softmax(x, dim=-1)
+            # return F.softmax(x, dim=-1)
+            return x
         else:
             return x
 
