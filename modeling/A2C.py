@@ -9,7 +9,10 @@ from SnakeGame.snake_game import SnakeGame
 from models import ActorCritic
 import matplotlib
 from torch.distributions import Categorical
-matplotlib.use('TkAgg')
+try:
+    matplotlib.use('TkAgg')
+except:
+    print("no TkAgg")
 
 
 class A2CDebugger:
@@ -218,10 +221,10 @@ class A2CAgent(Trainer):
         print(f'The trainnig was done over a total of {episode_count} episodes')
 
     def optimize_model(self, observations, actions, returns, advantages):
-        actions = F.one_hot(torch.tensor(actions, dtype=torch.int64), 4).float()
-        returns = torch.tensor(returns[:, None], dtype=torch.float)
-        advantages = torch.tensor(advantages, dtype=torch.float)
-        observations = torch.tensor(observations, dtype=torch.float)
+        actions = F.one_hot(torch.tensor(actions, dtype=torch.int64), 4).float().to(self.device)
+        returns = torch.tensor(returns[:, None], dtype=torch.float).to(self.device)
+        advantages = torch.tensor(advantages, dtype=torch.float).to(self.device)
+        observations = torch.tensor(observations, dtype=torch.float).to(self.device)
 
         # Update critic (Value network)
         self.value_optimizer.zero_grad()
