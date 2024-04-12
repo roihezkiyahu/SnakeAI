@@ -1,4 +1,4 @@
-from game_viz import GameVisualizer
+from game_viz import GameVisualizer, GameVisualizer_cv2
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -274,7 +274,7 @@ class Trainer:
     def log_and_compile_gif(self, episode):
         if (episode + 1) % self.save_gif_every_x_epochs == 0:
             gif_filename = f"{self.prefix_name}episode_{episode + 1}_score_{self.score_memory[-1]}.gif"
-            imageio.mimsave(gif_filename, self.frames, fps=5)
+            imageio.mimsave(gif_filename, self.visualizer.pad_frames_to_same_size(self.frames), fps=5)
             print(f"GIF saved for episode {episode + 1}.")
             self.frames = []  # Clear frames after saving
 
@@ -311,7 +311,7 @@ class Trainer:
 
     def save_validation_gif(self, episode, viz_score):
         gif_filename = f"{self.prefix_name}val_episode_{episode + 1}_score_{viz_score}.gif"
-        imageio.mimsave(gif_filename, self.frames, fps=5)
+        imageio.mimsave(gif_filename, self.visualizer.pad_frames_to_same_size(self.frames), fps=5)
         print(f"GIF saved for episode {episode + 1}.")
         self.frames = []
 

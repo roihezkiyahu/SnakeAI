@@ -8,6 +8,7 @@ from trainer import Trainer
 from SnakeGame.snake_game import SnakeGame
 from models import ActorCritic
 import matplotlib
+from torch.nn import utils
 from torch.distributions import Categorical
 try:
     matplotlib.use('TkAgg')
@@ -225,8 +226,9 @@ class A2CAgent(Trainer):
                  increasing_start_len=False,
                  patience=3,
                  entropy_coefficient=0.01,
-                 n_channels=11,
                  input_shape=(11, 12, 12),
+                 clip_grad=0,
+                 save_diagnostics=1000
                  ):
         super().__init__(game, value_network, actor_network, gamma=gamma, reward_params=reward_params,
                          max_init_len=max_init_len, close_food=close_food,
@@ -242,6 +244,8 @@ class A2CAgent(Trainer):
         self.entropy_coefficient = entropy_coefficient
         self.input_shape = input_shape
         self.debugger = A2CDebugger(self)
+        self.clip_grad = clip_grad
+        self.save_diagnostics = save_diagnostics
 
     def _returns_advantages(self, rewards, dones, values, next_value):
         returns = np.append(np.zeros_like(rewards), next_value, axis=0)
@@ -295,7 +299,7 @@ class A2CAgent(Trainer):
                     obs = self.init_episode()
                 if done:
                     print(" " * 100, end="\r")
-                    print(f"current reward: {total_reward}, current score: {score}", end="\r")
+                    print(f"episode: {episode_count}, reward: {total_reward}, score: {score}", end="\r")
                     self.rewards_memory.append(total_reward)
                     self.score_memory.append(score)
                     self.log_and_compile_gif(episode_count)
@@ -314,9 +318,9 @@ class A2CAgent(Trainer):
             returns, advantages = self._returns_advantages(rewards, dones, values, next_value)
             self.optimize_model(observations, actions, returns, advantages)
 
-            if (epoch+1) % 250 == 0:
-                self.debugger.plot_diagnostics(epoch)
-                print(f"saved diagnostics epoch: {epoch}")
+            if (epoch+1) % self.save_diagnostics == 0:
+                self.debugger.plot_diagnostics(epoch+1)
+                print(f"saved diagnostics epoch: {epoch+1}")
 
         print(f'The trainnig was done over a total of {episode_count} episodes')
 
@@ -332,6 +336,8 @@ class A2CAgent(Trainer):
         value_loss = (0.5*(values-returns)**2).mean()
         value_loss.backward()
         self.debugger.track_gradients()
+        if self.clip_grad > 0:
+            utils.clip_grad_norm_(self.value_network.parameters(), self.clip_grad)
         self.value_optimizer.step()
 
         # Update actor (Policy network)
@@ -348,6 +354,8 @@ class A2CAgent(Trainer):
 
         actor_loss.backward()
         self.debugger.track_gradients(True)
+        if self.clip_grad > 0:
+            utils.clip_grad_norm_(self.actor_network.parameters(), self.clip_grad)
         self.actor_optimizer.step()
 
         self.debugger.track_loss(actor_loss, value_loss)
@@ -366,13 +374,52 @@ if __name__ == "__main__":
     actor_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='actor')
     critic_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='critic')
 
-    A2C = A2CAgent(game, critic_model, actor_model, folder="A2C",
+    # A2C = A2CAgent(game, critic_model, actor_model, folder="A2C_clip_grad1",
+    #                value_network_lr=1e-4, actor_network_lr=1e-4,
+    #                close_food=0, close_food_episodes_skip=250,
+    #                reward_params={'death': 0, 'move': 0, 'food': 0,
+    #                               "food_length_dependent": 1, "death_length_dependent": -1},
+    #                validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=1250,
+    #                increasing_start_len=True, episodes=50000,
+    #                max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250,
+    #                clip_grad=1)
+    #
+    # A2C.training_batch(10000, 64)
+
+
+    # A2C = A2CAgent(game, critic_model, actor_model, folder="A2C_clip_grad1_bs512",
+    #                value_network_lr=1e-4, actor_network_lr=1e-4,
+    #                close_food=0, close_food_episodes_skip=250,
+    #                reward_params={'death': 0, 'move': 0, 'food': 0,
+    #                               "food_length_dependent": 1, "death_length_dependent": -1},
+    #                validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=1250,
+    #                increasing_start_len=True, episodes=50000,
+    #                max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250,
+    #                clip_grad=1)
+    #
+    # A2C.training_batch(10000, 512)
+
+    A2C = A2CAgent(game, critic_model, actor_model, folder="A2C_clip_grad1_bs256_close2500",
                    value_network_lr=1e-4, actor_network_lr=1e-4,
-                   close_food=0, close_food_episodes_skip=250,
+                   close_food=2500, close_food_episodes_skip=250,
                    reward_params={'death': 0, 'move': 0, 'food': 0,
                                   "food_length_dependent": 1, "death_length_dependent": -1},
-                   validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=500,
+                   validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=1250,
                    increasing_start_len=True, episodes=50000,
-                   max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250)
+                   max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250,
+                   clip_grad=1)
 
-    A2C.training_batch(10000, 64)
+    A2C.training_batch(10000, 256)
+
+
+    A2C = A2CAgent(game, critic_model, actor_model, folder="A2C_clip_grad1_bs256",
+                   value_network_lr=1e-4, actor_network_lr=1e-4,
+                   close_food=2500, close_food_episodes_skip=250,
+                   reward_params={'death': 0, 'move': 0, 'food': 0,
+                                  "food_length_dependent": 1, "death_length_dependent": -1},
+                   validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=1250,
+                   increasing_start_len=True, episodes=50000,
+                   max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250,
+                   clip_grad=1)
+
+    A2C.training_batch(10000, 256)
