@@ -296,7 +296,7 @@ class A2CAgent(Trainer):
                 steps +=1
                 if steps >= self.max_episode_len:
                     done = True
-                    obs = self.init_episode()
+                    obs = self.init_episode(episode_count)
                 if done:
                     print(" " * 100, end="\r")
                     print(f"episode: {episode_count}, reward: {total_reward}, score: {score}", end="\r")
@@ -368,58 +368,72 @@ if __name__ == "__main__":
         {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}
     ]
     fc_layers = [256]
+
     action_size = 4
-    game = SnakeGame(10, 10, 10, default_start_prob=1)
+    game = SnakeGame(10, 10, 10, default_start_prob=0.25)
     input_shape = (11, game.width + 2, game.height + 2)
+    # actor_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='actor')
+    # critic_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='critic')
+    #
+    # A2C = A2CAgent(game, critic_model, actor_model, folder="A2C_clip_grad5_bs256_close5000_20k",
+    #                value_network_lr=1e-4, actor_network_lr=1e-4,
+    #                close_food=5000, close_food_episodes_skip=500,
+    #                reward_params={'death': 0, 'move': 0, 'food': 0,
+    #                               "food_length_dependent": 1, "death_length_dependent": -1},
+    #                validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=500,
+    #                increasing_start_len=True, episodes=50000,
+    #                max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250,
+    #                clip_grad=5)
+    #
+    # A2C.training_batch(20000, 256)
+
+
+    game = SnakeGame(10, 10, 10, default_start_prob=0.25)
     actor_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='actor')
     critic_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='critic')
 
-    # A2C = A2CAgent(game, critic_model, actor_model, folder="A2C_clip_grad1",
-    #                value_network_lr=1e-4, actor_network_lr=1e-4,
-    #                close_food=0, close_food_episodes_skip=250,
-    #                reward_params={'death': 0, 'move': 0, 'food': 0,
-    #                               "food_length_dependent": 1, "death_length_dependent": -1},
-    #                validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=1250,
-    #                increasing_start_len=True, episodes=50000,
-    #                max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250,
-    #                clip_grad=1)
-    #
-    # A2C.training_batch(10000, 64)
-
-
-    # A2C = A2CAgent(game, critic_model, actor_model, folder="A2C_clip_grad1_bs512",
-    #                value_network_lr=1e-4, actor_network_lr=1e-4,
-    #                close_food=0, close_food_episodes_skip=250,
-    #                reward_params={'death': 0, 'move': 0, 'food': 0,
-    #                               "food_length_dependent": 1, "death_length_dependent": -1},
-    #                validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=1250,
-    #                increasing_start_len=True, episodes=50000,
-    #                max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250,
-    #                clip_grad=1)
-    #
-    # A2C.training_batch(10000, 512)
-
-    A2C = A2CAgent(game, critic_model, actor_model, folder="A2C_clip_grad1_bs256_close2500",
-                   value_network_lr=1e-4, actor_network_lr=1e-4,
-                   close_food=2500, close_food_episodes_skip=250,
+    A2C = A2CAgent(game, critic_model, actor_model, folder="A2C_clip_grad1_bs128_5e5_close5000",
+                   value_network_lr=5e-5, actor_network_lr=5e-5,
+                   close_food=5000, close_food_episodes_skip=500,
                    reward_params={'death': 0, 'move': 0, 'food': 0,
                                   "food_length_dependent": 1, "death_length_dependent": -1},
-                   validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=1250,
+                   validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=12500,
                    increasing_start_len=True, episodes=50000,
                    max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250,
                    clip_grad=1)
 
-    A2C.training_batch(10000, 256)
+    A2C.training_batch(20000, 128)
 
+    game = SnakeGame(10, 10, 10, default_start_prob=0.25)
+    actor_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='actor')
+    critic_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='critic')
 
-    A2C = A2CAgent(game, critic_model, actor_model, folder="A2C_clip_grad1_bs256",
-                   value_network_lr=1e-4, actor_network_lr=1e-4,
-                   close_food=2500, close_food_episodes_skip=250,
+    A2C = A2CAgent(game, critic_model, actor_model, folder="A2C_clip_grad1_bs64_5e5_close5000",
+                   value_network_lr=5e-5, actor_network_lr=5e-5,
+                   close_food=5000, close_food_episodes_skip=500,
                    reward_params={'death': 0, 'move': 0, 'food': 0,
                                   "food_length_dependent": 1, "death_length_dependent": -1},
-                   validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=1250,
+                   validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=12500,
                    increasing_start_len=True, episodes=50000,
                    max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250,
                    clip_grad=1)
 
-    A2C.training_batch(10000, 256)
+    A2C.training_batch(20000, 64)
+
+    game = SnakeGame(10, 10, 10, default_start_prob=0.25)
+    actor_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='actor')
+    critic_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='critic')
+
+    A2C = A2CAgent(game, critic_model, actor_model, folder="A2C_clip_grad1_bs32_5e5_close5000",
+                   value_network_lr=5e-5, actor_network_lr=5e-5,
+                   close_food=5000, close_food_episodes_skip=500,
+                   reward_params={'death': 0, 'move': 0, 'food': 0,
+                                  "food_length_dependent": 1, "death_length_dependent": -1},
+                   validate_every_n_episodes=1000, validate_episodes=100, save_gif_every_x_epochs=12500,
+                   increasing_start_len=True, episodes=50000,
+                   max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250,
+                   clip_grad=1)
+
+    A2C.training_batch(20000, 32)
+
+

@@ -50,7 +50,7 @@ class Trainer:
         self.use_ddqn = use_ddqn
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.game = game
-        self.visualizer = GameVisualizer(game)
+        self.visualizer = GameVisualizer_cv2(game)
         self.model = model.to(self.device)
         self.target_net = clone_model.to(self.device)
         self.episodes = episodes
