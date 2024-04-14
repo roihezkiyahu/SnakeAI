@@ -86,17 +86,25 @@ class DQN(nn.Module):
 
 
 class ActorCritic(nn.Module):
-    def __init__(self, input_shape, action_size, conv_layers_params, fc_layers, mode='actor'):
+    def __init__(self, input_shape, action_size, conv_layers_params, fc_layers, mode='actor', use_batch_norm=False):
         super(ActorCritic, self).__init__()
 
         self.mode = mode
-        self.conv_layers = nn.ModuleList([nn.Conv2d(**params) for params in conv_layers_params])
+        self.use_batch_norm = use_batch_norm
+        self.conv_layers = nn.ModuleList()
+        for params in conv_layers_params:
+            self.conv_layers.append(nn.Conv2d(**params))
+            if self.use_batch_norm:
+                self.conv_layers.append(nn.BatchNorm2d(params['out_channels']))
+
         self.fc_input_dim = self._feature_size(input_shape)
 
         self.fc_layers = nn.ModuleList()
         for i, units in enumerate(fc_layers):
             in_features = self.fc_input_dim if i == 0 else fc_layers[i - 1]
             self.fc_layers.append(nn.Linear(in_features, units))
+            if self.use_batch_norm:
+                self.fc_layers.append(nn.BatchNorm1d(units))
 
         if mode == 'actor':
             self.output_layer = nn.Linear(fc_layers[-1], action_size)
@@ -110,14 +118,16 @@ class ActorCritic(nn.Module):
         x = self.output_layer(x)
 
         if self.mode == 'actor':
-            # return F.softmax(x, dim=-1)
-            return x
+            return x  # or F.softmax(x, dim=-1) for probabilities
         else:
             return x
 
     def _apply_layers(self, layers, x):
         for layer in layers:
-            x = F.relu(layer(x))
+            if isinstance(layer, (nn.Conv2d, nn.Linear)):
+                x = F.relu(layer(x))
+            else:  # Apply BatchNorm without additional activation
+                x = layer(x)
         return x
 
     def _feature_size(self, input_shape):

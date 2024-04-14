@@ -361,7 +361,7 @@ class Trainer:
         self.print_epoch_summary(episode, rewards, scores, True)
         mean_score = np.nanmean(scores)
         if self.increasing_start_len:
-            self.max_init_len = np.max([int(mean_score*1.5)+1, 2])
+            self.max_init_len = np.max([int(mean_score*1.5)+1, 2, self.max_init_len])
         self.model.train()
         self.save_validation_gif(episode, viz_score)
         if self.use_scheduler:

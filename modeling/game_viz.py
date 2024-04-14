@@ -86,48 +86,48 @@ class GameVisualizer_cv2:
         self.game = game
 
     def draw_grid(self, img, offset_y):
-        # Draw the black border around the grid
         cv2.rectangle(img, (0, offset_y), (img.shape[1], img.shape[0]), (0, 0, 0), thickness=1)
-        # Draw the grid lines
         for x in range(1, self.game.width):
-            cv2.line(img, (x * self.cell_size, offset_y), (x * self.cell_size, offset_y + self.game.height * self.cell_size), (200, 200, 200), 1)
+            cv2.line(img, (x * self.cell_size, offset_y),
+                     (x * self.cell_size, offset_y + self.game.height * self.cell_size), (200, 200, 200), 1)
         for y in range(1, self.game.height):
-            cv2.line(img, (0, offset_y + y * self.cell_size), (self.game.width * self.cell_size, offset_y + y * self.cell_size), (200, 200, 200), 1)
+            cv2.line(img, (0, offset_y + y * self.cell_size),
+                     (self.game.width * self.cell_size, offset_y + y * self.cell_size), (200, 200, 200), 1)
 
     def draw_snake(self, img, offset_y):
         for i, (x, y) in enumerate(self.game.snake):
-            color = (0, 128, 0) if i == 0 else (0, 255, 0)  # Dark green for head, light green for body
+            color = (0, 128, 0) if i == 0 else (0, 255, 0)
             cv2.rectangle(img, (x * self.cell_size, y * self.cell_size + offset_y),
                           ((x + 1) * self.cell_size, (y + 1) * self.cell_size + offset_y), color, -1)
 
     def draw_food(self, img, offset_y):
         food_x, food_y = self.game.food
         center = (int(food_x * self.cell_size + self.cell_size / 2), int(food_y * self.cell_size + self.cell_size / 2 + offset_y))
-        cv2.circle(img, center, self.cell_size // 2, (0, 0, 255), -1)  # Red color
+        cv2.circle(img, center, self.cell_size // 2, (0, 0, 255), -1)
 
     def save_current_frame(self, game_action, probs):
-        cell_size = 60  # Increase cell size to make the image three times larger
+        cell_size = 30
         self.cell_size = cell_size
-        text_height = 80  # Allocate more space for text if needed
+        text_height = 60
         img_height = self.game.height * cell_size + text_height
         img_width = self.game.width * cell_size
         img = np.zeros((img_height, img_width, 3), dtype=np.uint8)
-        img.fill(255)  # Set background to white
+        img.fill(255)
 
         self.draw_grid(img, text_height)
         self.draw_snake(img, text_height)
         self.draw_food(img, text_height)
 
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.7
+        font_scale = 0.5
         thickness = 2
         text_size_action = cv2.getTextSize(f"Action: {game_action}", font, font_scale, thickness)[0]
         text_size_probs = cv2.getTextSize(f"Probs: {probs}", font, font_scale, thickness)[0]
         x_center_action = (img_width - text_size_action[0]) // 2
         x_center_probs = (img_width - text_size_probs[0]) // 2
 
-        cv2.putText(img, f"Action: {game_action}", (x_center_action, 30), font, font_scale, (0, 0, 0), thickness, cv2.LINE_AA)
-        cv2.putText(img, f"Probs: {probs}", (x_center_probs, 60), font, font_scale, (0, 0, 0), thickness, cv2.LINE_AA)
+        cv2.putText(img, f"Action: {game_action}", (x_center_action, 20), font, font_scale, (0, 0, 0), thickness, cv2.LINE_AA)
+        cv2.putText(img, f"Probs: {probs}", (x_center_probs, 40), font, font_scale, (0, 0, 0), thickness, cv2.LINE_AA)
 
         return img
 
