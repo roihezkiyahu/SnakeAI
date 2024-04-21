@@ -327,6 +327,7 @@ class Trainer:
                     run_res = self.run_validation_move(steps, state, validation_episode, last_action, total_reward,
                                                        last_score, viz_total_reward, viz_score)
                     done, total_reward, score, state, viz_total_reward, viz_score = run_res
+                    last_score = score
                 scores, rewards = self.pp_val_episode(scores, score, rewards, total_reward, validation_episode)
         self.on_validation_end(last_start_prob, episode, rewards, scores, viz_score)
 
