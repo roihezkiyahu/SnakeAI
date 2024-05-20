@@ -49,7 +49,6 @@ class PERMemory(object):
         indices = np.random.choice(len(self.memory), batch_size, p=probabilities)
         samples = [self.memory[idx] for idx in indices]
 
-        # Calculate importance-sampling weights
         total = len(self.memory)
         weights = (total * probabilities[indices]) ** (-beta)
         weights /= weights.max()

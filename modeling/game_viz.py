@@ -13,33 +13,27 @@ class GameVisualizer:
         self.game = game
 
     def draw_grid(self, ax):
-        # Extend the grid to include the border
         for x in range(-1, self.game.width + 1):
             for y in range(-1, self.game.height + 1):
                 if x == -1 or y == -1 or x == self.game.width or y == self.game.height:
-                    # Draw the black border
                     rect = patches.Rectangle((x, y), 1, 1, linewidth=1, edgecolor='black', facecolor='black')
                 else:
-                    # Draw the game grid
                     rect = patches.Rectangle((x, y), 1, 1, linewidth=1, edgecolor='gray', facecolor='none')
                 ax.add_patch(rect)
 
     def draw_snake(self, ax):
-        # Offset snake positions by 1 to account for the new border
         for i, (x, y) in enumerate(self.game.snake):
-            if i == 0:  # Head of the snake
+            if i == 0:
                 ax.add_patch(patches.Rectangle((x, y), 1, 1, facecolor='darkgreen'))
-            else:  # Body of the snake
+            else:
                 ax.add_patch(patches.Rectangle((x, y), 1, 1, facecolor='green'))
 
     def draw_food(self, ax):
-        # Offset food position by 1
         food_x, food_y = self.game.food
         ax.add_patch(patches.Circle((food_x + 0.5, food_y + 0.5), 0.5, facecolor='red'))
 
     def save_current_frame(self, game_action, probs):
         fig, ax = plt.subplots(figsize=(5, 5))
-        # Adjust the limits to include the new border
         ax.set_xlim(-1, self.game.width + 1)
         ax.set_ylim(-1, self.game.height + 1)
         plt.axis('off')
@@ -61,11 +55,9 @@ class GameVisualizer:
 
 
     def pad_frames_to_same_size(self, frames):
-        # Find the max dimensions
         max_height = max(frame.shape[0] for frame in frames)
         max_width = max(frame.shape[1] for frame in frames)
 
-        # Pad the images
         padded_frames = []
         for frame in frames:
             pad_height = (max_height - frame.shape[0]) // 2

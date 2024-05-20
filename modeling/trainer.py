@@ -1,17 +1,20 @@
-from game_viz import GameVisualizer, GameVisualizer_cv2
+from modeling.game_viz import GameVisualizer, GameVisualizer_cv2
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import os
-from memory import ReplayMemory, Transition, PERMemory
+from modeling.memory import ReplayMemory, Transition, PERMemory
 import math
 import numpy as np
-from processing import preprocess_state, postprocess_action
+from modeling.processing import preprocess_state, postprocess_action
 import torch.nn.functional as F
 import random
 import imageio
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import csv
+from modeling.AtariGameWrapper import AtariGameWrapper
 
 class Trainer:
     def __init__(
@@ -22,21 +25,17 @@ class Trainer:
             episodes=10000,
             learning_rate=5e-5,
             gamma=0.99,
-            reward_params={'death': 0, 'move': 0, 'food': 0, "food_length_dependent": 1, "death_length_dependent": -1},
             n_memory_episodes=100,
             prefix_name="",
             folder="",
             save_gif_every_x_epochs=500,
-            batch_size=1024,
+            batch_size=512,
             EPS_START=1,
             EPS_END=0,
             EPS_DECAY=250,
             TAU=5e-3,
             max_episode_len=10000,
-            close_food=2500,
-            close_food_episodes_skip=100,
             use_ddqn=True,
-            max_init_len=15,
             replaymemory=10000,
             optimizer=None,
             discount_rate=0.99,
@@ -44,9 +43,12 @@ class Trainer:
             use_scheduler=False,
             validate_every_n_episodes=500,
             validate_episodes=100,
-            increasing_start_len=False,
-            patience=3
+            patience=3,
+            n_actions=4,
+            game_wrapper=None
     ):
+        if isinstance(game_wrapper, type(None)):
+            game_wrapper = AtariGameWrapper(game)
         self.use_ddqn = use_ddqn
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.game = game
@@ -56,7 +58,6 @@ class Trainer:
         self.episodes = episodes
         self.learning_rate = learning_rate
         self.gamma = gamma
-        self.reward_params = reward_params
         self.n_memory_episodes = n_memory_episodes
         self.batch_size = batch_size
         self.EPS_START = EPS_START
@@ -64,8 +65,6 @@ class Trainer:
         self.EPS_DECAY = EPS_DECAY
         self.TAU = TAU
         self.max_episode_len = max_episode_len
-        self.close_food = close_food
-        self.close_food_episodes_skip = close_food_episodes_skip
         self.save_gif_every_x_epochs = save_gif_every_x_epochs
 
         if folder:
@@ -85,12 +84,12 @@ class Trainer:
         self.score_memory = []
         self.frames = []
         self.memory = PERMemory(replaymemory, per_alpha)
-        self.max_init_len = max_init_len
         self.discount_rate = discount_rate
         self.validate_every_n_episodes = validate_every_n_episodes
         self.validate_episodes = validate_episodes
-        self.increasing_start_len = increasing_start_len
         self.validation_log = []
+        self.n_actions = n_actions
+        self.game_wrapper = game_wrapper
 
     def choose_action(self, state, episode, validation=False):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -101,7 +100,7 @@ class Trainer:
         else:
             epsilon = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1. * episode / self.EPS_DECAY)
             if torch.rand(1, device=self.device).item() < epsilon:
-                return torch.randint(0, 4, (1,), device=self.device).item(), [0, 0, 0, 0]
+                return torch.randint(0, self.n_actions, (1,), device=self.device).item(), [0]*self.n_actions
             else:
                 with torch.no_grad():
                     probs = self.model(state_tensor)
@@ -119,21 +118,6 @@ class Trainer:
             R = rewards[t] + self.discount_rate * R
             discounted[t] = R
         return discounted
-
-    def compute_reward(self, score, last_score, done, move, snake_len):
-        reward = self.reward_params['death'] * done
-        reward += self.reward_params['move'] * move
-        reward += (score - last_score) * self.reward_params['food']
-        reward += (score - last_score) * self.reward_params.get('food_length_dependent', 0) * snake_len
-        reward += done * self.reward_params.get('death_length_dependent', 0) * snake_len
-        return reward
-
-    def update_state(self, done):
-        if done:
-            return None, None
-        next_state = preprocess_state(self.game)
-        next_state_tensor = torch.FloatTensor(next_state).unsqueeze(0)
-        return next_state, next_state_tensor
 
     def get_batch(self):
         transitions, indices, weights = self.memory.sample(self.batch_size)
@@ -183,59 +167,39 @@ class Trainer:
             td_errors = (expected_state_action_values.unsqueeze(1) - state_action_values).abs().squeeze().cpu().numpy()
             self.memory.update_priorities(indices, td_errors)
 
-    def init_game_max_food_distance(self, episode):
-        if episode > self.close_food:
-            self.game.max_food_distance = None
-        else:
-            self.game.max_food_distance = episode // self.close_food_episodes_skip + 1
-
-    def check_failed_init(self, steps, done, episode, game_action, probs, last_action, debug=False):
+    def check_failed_init(self, steps, done, episode, action, probs, debug=False):
+        game_action = self.game_wrapper.preprocessor.postprocess_action(action)
         if steps <= 1 and done:
             if debug:
                 print("failed attempt")
                 image = self.visualizer.save_current_frame(game_action, probs)
                 plt.imshow(image)
                 plt.show()
-                print(f"{last_action}, {game_action}")
             if (episode + 1) % self.save_gif_every_x_epochs == 0:
                 self.visualize_and_save_game_state(episode, game_action, probs)
             return True
         return False
 
-    def init_episode(self, episode, validation=False):
-        if validation:
-            self.model.eval()
-            self.game.default_start_prob = 1
-            self.game.max_food_distance = None
-            self.game.reset_game()
-        else:
-            self.init_game_max_food_distance(episode)
-            self.game.reset_game(random.randint(2, self.max_init_len))
-        state = preprocess_state(self.game)
-        return state
-
     def run_episode(self, episode):
-        state = self.init_episode(episode)
-        done, last_score, steps, score, rewards, last_action = False, 0, 0, np.nan, [], self.game.snake_direction
+        state, info = self.game_wrapper.reset()
+        done, steps, rewards = False, 0, []
 
         while not done and steps <= self.max_episode_len:
             steps += 1
             action, probs = self.choose_action(state, episode)
-            game_action = postprocess_action(action)
-            self.game.change_direction(game_action)
-            score, done = self.game.move()
-            if self.check_failed_init(steps, done, episode, game_action, probs, last_action):
-                rewards.append(np.nan)
+            obs, reward, terminated, truncated, _ = self.game_wrapper.step(action)
+            done = terminated or truncated
+            if self.check_failed_init(steps, done, episode, action, probs):
+                # rewards.append(reward)
                 break
-
-            reward = self.compute_reward(score, last_score, done, last_action != game_action, len(self.game.snake))
-            last_score = score
             rewards.append(reward)
-
-            next_state, next_state_tensor = self.update_state(done)
+            if terminated:
+                next_state_tensor = None
+            else:
+                next_state_tensor = torch.FloatTensor(obs).unsqueeze(0)
             self.memory.push(torch.tensor(state, device=self.device), torch.tensor([action], device=self.device),
                              next_state_tensor, torch.tensor([reward], device=self.device))
-            state = next_state
+            state = obs
             self.optimize_model()
 
             target_dict, policy_dict = self.target_net.state_dict(), self.model.state_dict()
@@ -244,16 +208,17 @@ class Trainer:
             self.target_net.load_state_dict(target_dict)
 
             if (episode + 1) % self.save_gif_every_x_epochs == 0:
-                self.visualize_and_save_game_state(episode, game_action, probs)
+                self.visualize_and_save_game_state(episode, self.game_wrapper.preprocessor.postprocess_action(action),
+                                                   probs)
 
-        return np.sum(rewards), score
+        return np.sum(rewards), self.game_wrapper.get_score()
 
     def visualize_and_save_game_state(self, episode, game_action, probs):
         if (episode + 1) % self.save_gif_every_x_epochs == 0:
             image = self.visualizer.save_current_frame(game_action, probs)
             self.frames.append(image)
 
-    def print_epoch_summary(self, episode, relevant_rewards, relevant_scores, validation=False):
+    def print_epoch_summary(self, episode, relevant_rewards, relevant_scores, validation=False):  # TODO change to wapper?
         min_reward = int(np.nanmin(relevant_rewards))
         max_reward = int(np.nanmax(relevant_rewards))
         mean_reward = int(np.nanmean(relevant_rewards))
@@ -274,7 +239,7 @@ class Trainer:
     def log_and_compile_gif(self, episode):
         if (episode + 1) % self.save_gif_every_x_epochs == 0:
             gif_filename = f"{self.prefix_name}episode_{episode + 1}_score_{self.score_memory[-1]}.gif"
-            imageio.mimsave(gif_filename, self.visualizer.pad_frames_to_same_size(self.frames), fps=5)
+            imageio.mimsave(gif_filename, self.visualizer.pad_frames_to_same_size(self.frames), fps=5, loop=0)
             print(f"GIF saved for episode {episode + 1}.")
             self.frames = []  # Clear frames after saving
 
@@ -284,24 +249,22 @@ class Trainer:
             self.print_epoch_summary(episode, relevant_rewards, relevant_scores)
             self.rewards_memory = []
 
-    def run_validation_move(self, steps, state, validation_episode, last_action, total_reward, last_score,
+    def run_validation_move(self, steps, state, validation_episode, total_reward,
                             viz_total_reward, viz_score):
         action, probs = self.choose_action(state, validation_episode, True)
-        game_action = postprocess_action(action)
-        self.game.change_direction(game_action)
-        score, done = self.game.move()
-        if self.check_failed_init(steps, done, -10 if validation_episode != 0 else -1, game_action, probs, last_action):
-            total_reward = np.nan
-            return True, total_reward, score, state, viz_total_reward, viz_score
-        reward = self.compute_reward(score, last_score, done, last_action != game_action, len(self.game.snake))
+        state, reward, done, _, _ = self.game_wrapper.step(action)
+        if self.check_failed_init(steps, done, -10 if validation_episode != 0 else -1, action, probs):
+            return True, np.nan, self.game_wrapper.get_score(), state, viz_total_reward, viz_score
+
         total_reward += reward
         if validation_episode == 0:
-            self.visualize_and_save_game_state(self.save_gif_every_x_epochs - 1, game_action, probs)
-            viz_total_reward, viz_score = total_reward, score
-        state, _ = self.update_state(done)
-        return done, total_reward, score, state, viz_total_reward, viz_score
+            self.visualize_and_save_game_state(self.save_gif_every_x_epochs - 1,
+                                               self.game_wrapper.preprocessor.postprocess_action(action), probs)
+            viz_total_reward, viz_score = total_reward, self.game_wrapper.get_score()
+        return done, total_reward, self.game_wrapper.get_score(), state, viz_total_reward, viz_score
 
-    def pp_val_episode(self, scores, score, rewards, total_reward, validation_episode):
+    @staticmethod
+    def pp_val_episode(scores, score, rewards, total_reward, validation_episode):
         scores.append(score)
         rewards.append(total_reward)
         print(" " * 100, end="\r")
@@ -311,32 +274,30 @@ class Trainer:
 
     def save_validation_gif(self, episode, viz_score):
         gif_filename = f"{self.prefix_name}val_episode_{episode + 1}_score_{viz_score}.gif"
-        imageio.mimsave(gif_filename, self.visualizer.pad_frames_to_same_size(self.frames), fps=5)
+        imageio.mimsave(gif_filename, self.visualizer.pad_frames_to_same_size(self.frames), fps=5, loop=0)
         print(f"GIF saved for episode {episode + 1}.")
         self.frames = []
 
     def validate_score(self, episode):
         rewards, scores, done, viz_total_reward, viz_score = [], [], False, 0, 0
-        last_start_prob = self.game.default_start_prob
         for validation_episode in range(self.validate_episodes):
-            state = self.init_episode(episode, validation=True)
-            last_action, last_score, score, total_reward, steps, done = self.game.snake_direction, 0, 0, 0, 0, False
+            self.model.eval()
+            state, info = self.game_wrapper.reset(options={"validation": True})
+            score, total_reward, steps, done = 0, 0, 0, False
             with torch.no_grad():
                 while not done and steps <= self.max_episode_len:
                     steps += 1
-                    run_res = self.run_validation_move(steps, state, validation_episode, last_action, total_reward,
-                                                       last_score, viz_total_reward, viz_score)
+                    run_res = self.run_validation_move(steps, state, validation_episode, total_reward,
+                                                       viz_total_reward, viz_score)
                     done, total_reward, score, state, viz_total_reward, viz_score = run_res
-                    last_score = score
                 scores, rewards = self.pp_val_episode(scores, score, rewards, total_reward, validation_episode)
-        self.on_validation_end(last_start_prob, episode, rewards, scores, viz_score)
+        self.on_validation_end(episode, rewards, scores, viz_score)
 
     def save_validation_csv(self):
         csv_filename = f"{self.prefix_name}validation_summary.csv"
         with open(csv_filename, 'w', newline='') as csvfile:
             fieldnames = ['episode', 'Mean Score', 'Median Score']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
             writer.writeheader()
             for log_entry in self.validation_log:
                 writer.writerow(log_entry)
@@ -345,7 +306,6 @@ class Trainer:
     def plot_validation_convergence(self):
         episodes = [log_entry['episode'] for log_entry in self.validation_log]
         mean_scores = [log_entry['Mean Score'] for log_entry in self.validation_log]
-
         plt.figure(figsize=(10, 6))
         plt.plot(episodes, mean_scores, marker='o', linestyle='-', color='b')
         plt.title('Validation Score Convergence')
@@ -357,12 +317,10 @@ class Trainer:
         plt.close()  # Close the figure to free memory
         print(f"Convergence plot saved to {plot_filename}")
 
-    def on_validation_end(self, last_start_prob, episode, rewards, scores, viz_score):
-        self.game.default_start_prob = last_start_prob
+    def on_validation_end(self, episode, rewards, scores, viz_score):
         self.print_epoch_summary(episode, rewards, scores, True)
         mean_score = np.nanmean(scores)
-        if self.increasing_start_len:
-            self.max_init_len = np.max([int(mean_score*1.5)+1, 2, self.max_init_len])
+        self.game_wrapper.on_validation_end(episode, rewards, scores)
         self.model.train()
         self.save_validation_gif(episode, viz_score)
         if self.use_scheduler:
@@ -378,6 +336,8 @@ class Trainer:
             total_reward, score = self.run_episode(episode)
             print(" " * 100, end="\r")
             print(f"current reward: {total_reward}, current score: {score}", end="\r")
+            if np.isnan(total_reward):
+                print("debug")
             self.rewards_memory.append(total_reward)
             self.score_memory.append(score)
 

@@ -14,6 +14,7 @@ try:
     matplotlib.use('TkAgg')
 except:
     print("no TkAgg")
+import os
 
 
 class A2CDebugger:
@@ -100,7 +101,6 @@ class A2CDebugger:
         plt.close()
 
 class A2CAgent(Trainer):
-
     def __init__(self, game, value_network, actor_network, value_network_lr=1e-4, actor_network_lr=1e-4,
                  gamma=0.99,
                  reward_params={'death': 0, 'move': 0, 'food': 0, "food_length_dependent": 1,
@@ -117,7 +117,7 @@ class A2CAgent(Trainer):
                  max_episode_len=10000,
                  close_food=2500,
                  close_food_episodes_skip=100,
-                 max_init_len=15,
+                 max_init_len=5,
                  replaymemory=10000,
                  discount_rate=0.99,
                  per_alpha=0.6,
@@ -440,13 +440,12 @@ if __name__ == "__main__":
     #
     # A2C.training_batch(60000, 128)
 
-
     conv_layers_params = [
         {'in_channels': 11, 'out_channels': 11, 'kernel_size': 3, 'stride': 1, 'padding': 1, 'groups': 11},
         {'in_channels': 11, 'out_channels': 16, 'kernel_size': 1, 'stride': 1},
-        {'in_channels': 16, 'out_channels': 16, 'kernel_size': 3, 'stride': 2, 'padding': 1},
         {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1},
-        {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}
+        {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1},
+        {'in_channels': 64, 'out_channels': 128, 'kernel_size': 3, 'stride': 2, 'padding': 1}
     ]
     fc_layers = [256]
 
@@ -470,23 +469,23 @@ if __name__ == "__main__":
     # A2C.training_batch(100000, 128)
 
 
-    game = SnakeGame(10, 10, 10, default_start_prob=0.25)
-    actor_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='actor',
-                              use_instance_norm=True)
-    critic_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='critic',
-                               use_instance_norm=True)
-
-    A2C = A2CAgent(game, critic_model, actor_model, folder="A2CIN_clip_grad100_bs256_inclen_nolendep",
-                   value_network_lr=5e-5, actor_network_lr=5e-5,
-                   close_food=5000, close_food_episodes_skip=500,
-                   reward_params={'death': -1.5, 'move': 0, 'food': 1,
-                                  "food_length_dependent": 0, "death_length_dependent": 0},
-                   validate_every_n_episodes=1000, validate_episodes=250, save_gif_every_x_epochs=2500,
-                   increasing_start_len=True, episodes=50000,
-                   max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250,
-                   clip_grad=100)
-
-    A2C.training_batch(100000, 256)
+    # game = SnakeGame(10, 10, 10, default_start_prob=0.25)
+    # actor_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='actor',
+    #                           use_instance_norm=True)
+    # critic_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='critic',
+    #                            use_instance_norm=True)
+    #
+    # A2C = A2CAgent(game, critic_model, actor_model, folder="A2CIN_clip_grad100_bs256_inclen_nolendep",
+    #                value_network_lr=5e-5, actor_network_lr=5e-5,
+    #                close_food=5000, close_food_episodes_skip=500,
+    #                reward_params={'death': -1.5, 'move': 0, 'food': 1,
+    #                               "food_length_dependent": 0, "death_length_dependent": 0},
+    #                validate_every_n_episodes=1000, validate_episodes=250, save_gif_every_x_epochs=2500,
+    #                increasing_start_len=True, episodes=50000,
+    #                max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250,
+    #                clip_grad=100)
+    #
+    # A2C.training_batch(100000, 256)
 
 
     # game = SnakeGame(10, 10, 10, default_start_prob=0.25)
@@ -523,3 +522,69 @@ if __name__ == "__main__":
     #                clip_grad=100, entropy_coefficient=0.005)
     #
     # A2C.training_batch(60000, 128)
+
+    # game = SnakeGame(10, 10, 10, default_start_prob=0.25)
+    # actor_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='actor',
+    #                           use_instance_norm=True)
+    # critic_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='critic',
+    #                            use_instance_norm=True)
+    #
+    # A2C = A2CAgent(game, critic_model, actor_model, folder="A2CIN_bs512_inclen",
+    #                value_network_lr=5e-5, actor_network_lr=5e-5,
+    #                close_food=5000, close_food_episodes_skip=500,
+    #                reward_params={'death': 0, 'move': 0, 'food': 0,
+    #                               "food_length_dependent": 0.5, "death_length_dependent": -0.6},
+    #                validate_every_n_episodes=1000, validate_episodes=250, save_gif_every_x_epochs=2500,
+    #                increasing_start_len=True, episodes=50000,
+    #                max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250)
+    #
+    # A2C.training_batch(100000, 512)
+
+    conv_layers_params = [
+        {'in_channels': 11, 'out_channels': 11, 'kernel_size': 3, 'stride': 1, 'padding': 1, 'groups':11},
+        {'in_channels': 11, 'out_channels': 16, 'kernel_size': 1, 'stride': 1},
+        {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1},
+        {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1},
+        {'in_channels': 64, 'out_channels': 128, 'kernel_size': 3, 'stride': 2, 'padding': 1}
+    ]
+    fc_layers = [256]
+    game = SnakeGame(10, 10, 10, default_start_prob=0.1)
+
+    input_shape = (11, game.width + 2, game.height + 2)
+    action_size = 4
+    actor_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='actor',
+                              use_instance_norm=True)
+    critic_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='critic',
+                               use_instance_norm=True)
+
+    A2C = A2CAgent(game, critic_model, actor_model, folder="A2CIN_bs256_inclen_nolendep_morechannels_dsp01_2",
+                   value_network_lr=5e-5, actor_network_lr=5e-5,
+                   close_food=5000, close_food_episodes_skip=500,
+                   reward_params={'death': -1.5, 'move': 0, 'food': 1,
+                                  "food_length_dependent": 0, "death_length_dependent": 0},
+                   validate_every_n_episodes=1000, validate_episodes=250, save_gif_every_x_epochs=2500,
+                   increasing_start_len=True, episodes=50000,
+                   max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250)
+
+    A2C.training_batch(150000, 256)
+
+
+    game = SnakeGame(10, 10, 10, default_start_prob=0.1)
+
+    input_shape = (11, game.width + 2, game.height + 2)
+    action_size = 4
+    actor_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='actor',
+                              use_instance_norm=True)
+    critic_model = ActorCritic(input_shape, action_size, conv_layers_params, fc_layers, mode='critic',
+                               use_instance_norm=True)
+
+    A2C = A2CAgent(game, critic_model, actor_model, folder="A2CIN_bs256_inclen_nolendep_morechannels_dsp01_lr1e5",
+                   value_network_lr=1e-5, actor_network_lr=1e-5,
+                   close_food=5000, close_food_episodes_skip=500,
+                   reward_params={'death': -1.5, 'move': 0, 'food': 1,
+                                  "food_length_dependent": 0, "death_length_dependent": 0},
+                   validate_every_n_episodes=1000, validate_episodes=250, save_gif_every_x_epochs=2500,
+                   increasing_start_len=True, episodes=50000,
+                   max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250)
+
+    A2C.training_batch(150000, 256)

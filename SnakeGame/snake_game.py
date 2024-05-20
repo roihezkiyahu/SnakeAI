@@ -1,6 +1,5 @@
 import pygame
 import random
-import time
 
 
 class SnakeGame:
@@ -22,6 +21,11 @@ class SnakeGame:
         self.default_start_prob = default_start_prob
         self.max_food_distance = max_food_distance
         self.reset_game()
+        self.snake_direction = "UP"
+        self.score = 0
+        self.food = None
+        self.game_over = False
+        self.snake = []
 
     def reset_game(self, initial_length=2):
         """
@@ -35,7 +39,6 @@ class SnakeGame:
             self.default_start()
         else:
             self.random_start(initial_length)
-
         self.score = 0
         self.food = None
         self.place_food()
@@ -99,8 +102,7 @@ class SnakeGame:
                               ((x - head_x) ** 2 + (y - head_y) ** 2) <= self.max_food_distance ** 2]
 
         self.food = random.choice(possible_positions) if possible_positions else (
-        random.randint(0, self.width - 1), random.randint(0, self.height - 1))
-
+            random.randint(0, self.width - 1), random.randint(0, self.height - 1))
 
     def move(self):
         """
@@ -123,7 +125,7 @@ class SnakeGame:
             new_head = (head_x + 1, head_y)
 
         if new_head[0] < 0 or new_head[0] >= self.width or new_head[1] < 0 or new_head[
-            1] >= self.height or new_head in self.snake:
+                1] >= self.height or new_head in self.snake:
             self.game_over = True
             return self.score, self.game_over
 

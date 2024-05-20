@@ -127,7 +127,7 @@ class ActorCritic(nn.Module):
             if isinstance(layer, (nn.Conv2d, nn.Linear)):
                 x = F.relu(layer(x))
             elif isinstance(layer, (nn.InstanceNorm2d, nn.InstanceNorm1d)):
-                x = layer(x)  # Instance norm layers apply without additional ReLU
+                x = layer(x)
         return x
 
     def _feature_size(self, input_shape):
