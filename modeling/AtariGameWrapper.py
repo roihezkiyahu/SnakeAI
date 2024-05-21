@@ -22,28 +22,6 @@ class Preprocessor:
         return action
 
 
-# class AtariGameWrapper:
-#     def __init__(self, game):
-#         self.game = game
-#         self.episode_rewards = []
-#         self.preprocessor = Preprocessor()
-#
-#     def get_score(self):
-#         return np.sum(self.episode_rewards)
-#
-#     def step(self, action):
-#         obs, reward, done, trunc, info = self.game.step(action)
-#         self.episode_rewards.append(reward)
-#         return obs, reward, done, trunc, info
-#
-#     def reset(self, options=None):
-#         self.episode_rewards = []
-#         return self.game.reset()
-#
-#     def on_validation_end(self, episode, rewards, scores):
-#         pass
-
-
 class AtariGameWrapper:
     def __init__(self, game):
         self.game = game

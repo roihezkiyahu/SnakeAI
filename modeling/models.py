@@ -71,22 +71,63 @@ class CNNDQNAgent(nn.Module):
 
 
 class DQN(nn.Module):
-    def __init__(self, layer_params, n_observations, n_actions):
+    def __init__(self, layer_params, n_observations, n_actions, dueling=False):
         super(DQN, self).__init__()
-        self.layers = nn.ModuleList()
+        self.dueling = dueling
+        if dueling:
+            self.value_layers, self.advantage_layers = self._build_dueling_layers(layer_params, n_observations)
+            self.value_output = nn.Linear(layer_params[-1]['out_features'], 1)
+            self.advantage_output = nn.Linear(layer_params[-1]['out_features'], n_actions)
+        else:
+            self.layers = self._build_layers(layer_params, n_observations)
+            self.output_layer = nn.Linear(layer_params[-1]['out_features'], n_actions)
 
-        input_size = n_observations
-        for params in layer_params:
-            output_size = params['out_features']
-            self.layers.append(nn.Linear(input_size, output_size))
-            input_size = output_size
-
-        self.output_layer = nn.Linear(input_size, n_actions)
+    def dueling_forward(self, x):
+        value = self._apply_layers(self.value_layers, x)
+        value = self.value_output(value)
+        advantages = self._apply_layers(self.advantage_layers, x)
+        advantages = self.advantage_output(advantages)
+        q_vals = value + (advantages - advantages.mean(dim=1, keepdim=True))
+        return q_vals
 
     def forward(self, x):
-        for layer in self.layers:
+        if self.dueling:
+            q_vals = self.dueling_forward(x)
+        else:
+            q_vals = self._apply_layers(self.layers, x, True)
+        return q_vals
+
+    @staticmethod
+    def _build_dueling_layers(layer_params, input_size):
+        value_layers = nn.ModuleList()
+        advantage_layers = nn.ModuleList()
+        for params in layer_params:
+            output_size = params['out_features']
+            value_layers.append(nn.Linear(input_size, output_size))
+            advantage_layers.append(nn.Linear(input_size, output_size))
+            input_size = output_size
+        return value_layers, advantage_layers
+
+    @staticmethod
+    def _build_layers(layer_params, input_size):
+        layers = nn.ModuleList()
+        for params in layer_params:
+            output_size = params['out_features']
+            layers.append(nn.Linear(input_size, output_size))
+            input_size = output_size
+        return layers
+
+    @staticmethod
+    def _apply_layers(layers, x, apply_last=False):
+        for i, layer in enumerate(layers):
+            if apply_last and i == len(layers) - 1:
+                return layer(x)
             x = F.relu(layer(x))
-        return self.output_layer(x)
+        return x
+
+    @staticmethod
+    def _compute_dueling_q_vals(value, advantages):
+        return value + (advantages - advantages.mean(dim=1, keepdim=True))
 
 
 class ActorCritic(nn.Module):

@@ -135,9 +135,7 @@ class Trainer:
         next_state_batch = torch.cat([s for s in batch.next_state if s is not None]).to(self.device)
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool,
                                       device=self.device)
-
         weights = torch.tensor(weights, dtype=torch.float32, device=self.device).unsqueeze(1)
-
         return state_batch, action_batch, reward_batch, next_state_batch, non_final_mask, weights, indices
 
     def get_state_target_value(self, state_batch, action_batch, non_final_next_states, non_final_mask):
@@ -152,24 +150,23 @@ class Trainer:
             target_action_values[non_final_mask] = target_net_pred.max(1)[0]
         return state_action_values, target_action_values
 
-    def optimize_model(self):
-        if len(self.memory) < self.batch_size:
-            return
-
+    def calc_loss(self):
         state_batch, action_batch, reward_batch, next_state_batch, non_final_mask, weights, indices = self.get_batch()
         state_action_values = self.model(state_batch).gather(1, action_batch)
-
         next_state_values = torch.zeros(self.batch_size, device=self.device)
         next_state_values[non_final_mask] = self.target_net(next_state_batch).max(1)[0].detach()
-
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch
         loss = (weights * F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1),
                                            reduction='none')).mean()
+        return loss, expected_state_action_values, state_action_values, indices
 
+    def optimize_model(self):
+        if len(self.memory) < self.batch_size:
+            return
+        loss, expected_state_action_values, state_action_values, indices = self.calc_loss()
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-
         with torch.no_grad():
             td_errors = (expected_state_action_values.unsqueeze(1) - state_action_values).abs().squeeze().cpu().numpy()
             self.memory.update_priorities(indices, td_errors)
@@ -187,36 +184,51 @@ class Trainer:
             return True
         return False
 
+    @staticmethod
+    def get_next_state_tensor(terminated, obs):
+        if terminated:
+            return None
+        return torch.FloatTensor(obs).unsqueeze(0)
+
+    def update_target_net(self):
+        target_dict, policy_dict = self.target_net.state_dict(), self.model.state_dict()
+        for key in policy_dict:
+            target_dict[key] = policy_dict[key] * self.TAU + target_dict[key] * (1 - self.TAU)
+        self.target_net.load_state_dict(target_dict)
+
+    def save_gif_if_needed(self, episode, action, probs):
+        if (episode + 1) % self.save_gif_every_x_epochs == 0:
+            self.visualize_and_save_game_state(
+                episode,
+                self.game_wrapper.preprocessor.postprocess_action(action),
+                probs
+            )
+
+    def process_episode_step(self, steps, episode, action, probs, reward, terminated, truncated, state, obs):
+        done = terminated or truncated
+        if self.check_failed_init(steps, done, episode, action, probs):
+            return done, True
+        next_state_tensor = self.get_next_state_tensor(terminated, obs)
+        self.memory.push(torch.tensor(state, device=self.device), torch.tensor([action], device=self.device),
+                         next_state_tensor, torch.tensor([reward], device=self.device))
+        self.optimize_model()
+        self.update_target_net()
+        self.save_gif_if_needed(episode, action, probs)
+        return done, False
+
     def run_episode(self, episode):
         state, info = self.game_wrapper.reset(self.reset_options)
         done, steps, rewards = False, 0, []
-
         while not done and steps <= self.max_episode_len:
             steps += 1
             action, probs = self.choose_action(state, episode)
             obs, reward, terminated, truncated, _ = self.game_wrapper.step(action)
-            done = terminated or truncated
-            if self.check_failed_init(steps, done, episode, action, probs):
+            done, failed = self.process_episode_step(steps, episode, action, probs, reward,
+                                                     terminated, truncated, state, obs)
+            if failed:
                 break
             rewards.append(reward)
-            if terminated:
-                next_state_tensor = None
-            else:
-                next_state_tensor = torch.FloatTensor(obs).unsqueeze(0)
-            self.memory.push(torch.tensor(state, device=self.device), torch.tensor([action], device=self.device),
-                             next_state_tensor, torch.tensor([reward], device=self.device))
             state = obs
-            self.optimize_model()
-
-            target_dict, policy_dict = self.target_net.state_dict(), self.model.state_dict()
-            for key in policy_dict:
-                target_dict[key] = policy_dict[key] * self.TAU + target_dict[key] * (1 - self.TAU)
-            self.target_net.load_state_dict(target_dict)
-
-            if (episode + 1) % self.save_gif_every_x_epochs == 0:
-                self.visualize_and_save_game_state(episode, self.game_wrapper.preprocessor.postprocess_action(action),
-                                                   probs)
-
         return np.sum(rewards), self.game_wrapper.get_score()
 
     def visualize_and_save_game_state(self, episode, game_action, probs):
@@ -225,12 +237,9 @@ class Trainer:
             self.frames.append(image)
 
     def print_epoch_summary(self, episode, relevant_rewards, relevant_scores, validation=False):
-        min_reward = int(np.nanmin(relevant_rewards))
-        max_reward = int(np.nanmax(relevant_rewards))
-        mean_reward = int(np.nanmean(relevant_rewards))
-        mean_score = np.nanmean(relevant_scores)
-        med_score = np.nanmedian(relevant_scores)
-        max_score = np.nanmax(relevant_scores)
+        min_reward, max_reward = int(np.nanmin(relevant_rewards)), int(np.nanmax(relevant_rewards))
+        mean_reward, mean_score = int(np.nanmean(relevant_rewards)), np.nanmean(relevant_scores)
+        med_score, max_score = np.nanmedian(relevant_scores), np.nanmax(relevant_scores)
         if not validation:
             print(
                 f"Episodes {episode + 1 - self.n_memory_episodes}-{episode + 1}: Min Reward: {min_reward},"
@@ -262,7 +271,6 @@ class Trainer:
         done = terminated or truncated
         if self.check_failed_init(steps, done, -10 if validation_episode != 0 else -1, action, probs):
             return True, np.nan, self.game_wrapper.get_score(), state, viz_total_reward, viz_score
-
         total_reward += reward
         if validation_episode == 0:
             self.visualize_and_save_game_state(self.save_gif_every_x_epochs - 1,

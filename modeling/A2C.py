@@ -31,8 +31,7 @@ class A2CDebugger:
         self.loss_history.append((actor_loss.item(), value_loss.item()))
 
     def track_gradients(self, actor=False):
-        actor_gradients = []
-        critic_gradients = []
+        actor_gradients, critic_gradients = [], []
         for p in self.agent.actor_network.parameters():
             if p.grad is not None:
                 actor_gradients.append(p.grad.norm().item())
@@ -56,12 +55,8 @@ class A2CDebugger:
                 value = self.agent.value_network(torch.tensor(observation, dtype=torch.float)).item()
                 self.value_outputs.append(value)
 
-    def plot_diagnostics(self, epoch):
-        epochs = range(len(self.loss_history))
+    def plot_loss(self, epochs):
         actor_losses, value_losses = zip(*self.loss_history)
-
-        plt.figure(figsize=(15, 10))
-
         plt.subplot(221)
         plt.plot(epochs, actor_losses, label='Actor Loss')
         plt.plot(epochs, value_losses, label='Critic Loss')
@@ -70,6 +65,7 @@ class A2CDebugger:
         plt.ylabel('Loss')
         plt.legend()
 
+    def plot_grads(self, epochs):
         plt.subplot(222)
         actor_grads, critic_grads = self.gradient_norms_actor, self.gradient_norms_critic
         plt.plot(epochs, actor_grads, label='Actor Gradient Norms')
@@ -79,64 +75,65 @@ class A2CDebugger:
         plt.ylabel('Gradient Norm')
         plt.legend()
 
+    def plot_entropy(self, epochs):
         plt.subplot(223)
         plt.plot(epochs, self.policy_entropy)
         plt.title('Policy Entropy')
         plt.xlabel('Epoch')
         plt.ylabel('Entropy')
 
+    def plot_scores(self, window):
         plt.subplot(224)
-        plt.plot(range(1, len(self.score_history) + 1), self.score_history)
+        scores = np.array(self.score_history)
+        running_avg = np.convolve(scores, np.ones(window)/window, mode='valid')
+        plt.plot(range(1, len(scores) + 1), scores, label='Score')
+        plt.plot(range(window, len(scores) + 1), running_avg, label='Running Average', linestyle='dashed')
         plt.title('Rewards History')
         plt.xlabel('Game Number')
         plt.ylabel('Score')
+        plt.legend()
 
+    def plot_diagnostics(self, epoch, window=100):
+        epochs = range(len(self.loss_history))
+        plt.figure(figsize=(15, 10))
+        self.plot_loss(epochs)
+        self.plot_grads(epochs)
+        self.plot_entropy(epochs)
+        self.plot_scores(window)
         plt.tight_layout()
-
-        # Save the figure
         filename = f"{self.agent.prefix_name}_{epoch}_diagnostics.png"
         plt.savefig(filename)
         print(f"Saved diagnostics to {filename}")
-
         plt.close()
 
 class A2CAgent(Trainer):
     def __init__(self, game, value_network, actor_network, value_network_lr=1e-4, actor_network_lr=1e-4,
                  gamma=0.99,
-                 reward_params={'death': 0, 'move': 0, 'food': 0, "food_length_dependent": 1,
-                                "death_length_dependent": -1},
-                 episodes=10000,
-                 learning_rate=5e-5,
                  n_memory_episodes=100,
                  prefix_name="",
                  folder="",
                  save_gif_every_x_epochs=500,
-                 EPS_START=1,
-                 EPS_END=0,
-                 EPS_DECAY=250,
                  max_episode_len=10000,
-                 close_food=2500,
-                 close_food_episodes_skip=100,
-                 max_init_len=5,
-                 replaymemory=10000,
                  discount_rate=0.99,
-                 per_alpha=0.6,
                  validate_every_n_episodes=500,
                  validate_episodes=100,
-                 increasing_start_len=False,
-                 patience=3,
                  entropy_coefficient=0.01,
                  input_shape=(11, 12, 12),
                  clip_grad=0,
-                 save_diagnostics=2500
+                 save_diagnostics=2500,
+                 n_actions=4,
+                 game_wrapper=None,
+                 visualizer=None,
+                 gif_fps=5,
+                 reset_options=None
                  ):
-        super().__init__(game, value_network, actor_network, gamma=gamma, reward_params=reward_params,
-                         max_init_len=max_init_len, close_food=close_food,
-                         close_food_episodes_skip=close_food_episodes_skip, increasing_start_len=increasing_start_len,
+        super().__init__(game, value_network, actor_network, gamma=gamma,
                          n_memory_episodes=n_memory_episodes, prefix_name=prefix_name, folder=folder,
                          save_gif_every_x_epochs=save_gif_every_x_epochs,
                          max_episode_len=max_episode_len, discount_rate=discount_rate,
-                         validate_every_n_episodes=validate_every_n_episodes, validate_episodes=validate_episodes)
+                         validate_every_n_episodes=validate_every_n_episodes, validate_episodes=validate_episodes,
+                         n_actions=n_actions, game_wrapper=game_wrapper, visualizer=visualizer, gif_fps=gif_fps,
+                         reset_options=reset_options)
         self.value_network = value_network.to(self.device)
         self.actor_network = actor_network.to(self.device)
         self.value_optimizer = optim.RMSprop(self.value_network.parameters(), lr=value_network_lr)
@@ -163,41 +160,38 @@ class A2CAgent(Trainer):
         dones = np.zeros((batch_size,), dtype=bool)
         rewards, values = np.zeros((2, batch_size), dtype=np.float32)
         observations = np.zeros((batch_size,) + self.input_shape, dtype=np.float32)
-        obs = self.init_episode(episode_count) # TODO use wrapper
-        last_action = self.game.snake_direction
+        obs, info = self.game_wrapper.reset(self.reset_options)
         total_reward, last_score, steps = 0, 0, 1
-
-
         for epoch in range(epochs):
             for i in range(batch_size):
                 observations[i] = obs
                 obs_torch = torch.tensor(obs, dtype=torch.float).unsqueeze(0).to(self.device)
                 values[i] = self.value_network(obs_torch).cpu().detach().numpy()
                 policy = self.actor_network(obs_torch)
-                actions[i] = Categorical(logits=policy).sample().cpu().detach().numpy()
-                game_action = postprocess_action(actions[i])
-                self.game.change_direction(game_action)
-                score, done = self.game.move()
-                if self.check_failed_init(steps, done, epoch, game_action, policy, last_action):
+                action = Categorical(logits=policy).sample().cpu().detach().numpy()
+                actions[i] = action
+                obs, reward, terminated, truncated, _ = self.game_wrapper.step(action)
+                done = terminated or truncated
+                if self.check_failed_init(steps, done, epoch, action, policy):
                     rewards[i] = 0
-                    obs = self.init_episode(episode_count)  # TODO use wrapper
+                    obs, info = self.game_wrapper.reset(self.reset_options)
                     continue
-                reward = self.compute_reward(score, last_score, done, last_action != game_action, len(self.game.snake))  # TODO use wrapper
-                last_score = score
                 total_reward += reward
-                obs, rewards[i], dones[i]= preprocess_state(self.game), reward, done
+                rewards[i], dones[i] = reward, done
 
                 if (episode_count + 1) % self.save_gif_every_x_epochs == 0:
                     probs = torch.round(F.softmax(policy[0], dim=-1) * 100).cpu().int().tolist()
-                    self.visualize_and_save_game_state(episode_count, game_action, probs)
+                    self.visualize_and_save_game_state(episode_count,
+                                                       self.game_wrapper.preprocessor.postprocess_action(action), probs)
                 if dones[i]:
-                    obs = self.init_episode(episode_count)  # TODO use wrapper
+                    obs, info = self.game_wrapper.reset(self.reset_options)
 
                 steps +=1
                 if steps >= self.max_episode_len:
                     done = True
-                    obs = self.init_episode(episode_count)  # TODO use wrapper
+                    obs, info = self.game_wrapper.reset(self.reset_options)
                 if done:
+                    score = self.game_wrapper.get_score()
                     print(" " * 100, end="\r")
                     print(f"episode: {episode_count}, reward: {total_reward}, score: {score}", end="\r")
                     self.rewards_memory.append(total_reward)
@@ -210,7 +204,6 @@ class A2CAgent(Trainer):
                     self.debugger.track_scores([score])
                     total_reward = 0
                     steps = 0
-                    last_score = 0
 
             if dones[-1]:
                 next_value = [0]
@@ -220,7 +213,7 @@ class A2CAgent(Trainer):
             self.optimize_model(observations, actions, returns, advantages)
 
             if (epoch+1) % self.save_diagnostics == 0:
-                self.debugger.plot_diagnostics(epoch+1)
+                self.debugger.plot_diagnostics(epoch+1, self.validate_episodes)
                 print(f"saved diagnostics epoch: {epoch+1}")
 
         print(f'The trainnig was done over a total of {episode_count} episodes')
