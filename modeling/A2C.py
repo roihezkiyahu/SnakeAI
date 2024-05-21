@@ -163,7 +163,7 @@ class A2CAgent(Trainer):
         dones = np.zeros((batch_size,), dtype=bool)
         rewards, values = np.zeros((2, batch_size), dtype=np.float32)
         observations = np.zeros((batch_size,) + self.input_shape, dtype=np.float32)
-        obs = self.init_episode(episode_count)
+        obs = self.init_episode(episode_count) # TODO use wrapper
         last_action = self.game.snake_direction
         total_reward, last_score, steps = 0, 0, 1
 
@@ -180,9 +180,9 @@ class A2CAgent(Trainer):
                 score, done = self.game.move()
                 if self.check_failed_init(steps, done, epoch, game_action, policy, last_action):
                     rewards[i] = 0
-                    obs = self.init_episode(episode_count)
+                    obs = self.init_episode(episode_count)  # TODO use wrapper
                     continue
-                reward = self.compute_reward(score, last_score, done, last_action != game_action, len(self.game.snake))
+                reward = self.compute_reward(score, last_score, done, last_action != game_action, len(self.game.snake))  # TODO use wrapper
                 last_score = score
                 total_reward += reward
                 obs, rewards[i], dones[i]= preprocess_state(self.game), reward, done
@@ -191,12 +191,12 @@ class A2CAgent(Trainer):
                     probs = torch.round(F.softmax(policy[0], dim=-1) * 100).cpu().int().tolist()
                     self.visualize_and_save_game_state(episode_count, game_action, probs)
                 if dones[i]:
-                    obs = self.init_episode(episode_count)
+                    obs = self.init_episode(episode_count)  # TODO use wrapper
 
                 steps +=1
                 if steps >= self.max_episode_len:
                     done = True
-                    obs = self.init_episode(episode_count)
+                    obs = self.init_episode(episode_count)  # TODO use wrapper
                 if done:
                     print(" " * 100, end="\r")
                     print(f"episode: {episode_count}, reward: {total_reward}, score: {score}", end="\r")

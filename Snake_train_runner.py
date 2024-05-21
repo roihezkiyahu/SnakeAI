@@ -4,6 +4,8 @@ from modeling.trainer import Trainer
 from modeling.SnakeWrapper import SnakeGameWrap
 import copy
 import os
+from modeling.game_viz import GameVisualizer, GameVisualizer_cv2
+
 
 if __name__ == "__main__":
     conv_layers_params = [
@@ -22,10 +24,12 @@ if __name__ == "__main__":
     game_wrapper = SnakeGameWrap(game, reward_params={'death': -1.5, 'move': 0, 'food': 1,
                                                       'food_length_dependent': 0, 'death_length_dependent': 0})
 
+    visualizer = GameVisualizer_cv2(game)
+
     trainer = Trainer(game, model, clone_model, episodes=10000, learning_rate=5e-5,
                       gamma=0.99, validate_every_n_episodes=100,
-                     folder=os.path.join("logging", "morechannels_lessDimReduction_dsp1"), save_gif_every_x_epochs=100,
+                     folder=os.path.join("logging", "morechannels_lessDimReduction_vistest"), save_gif_every_x_epochs=100,
                      max_episode_len=10000, n_memory_episodes=100,
                      use_ddqn=True, EPS_END=0, EPS_START=1, batch_size=512,
-                      EPS_DECAY=250, replaymemory=5000, game_wrapper=game_wrapper)
+                      EPS_DECAY=250, replaymemory=5000, game_wrapper=game_wrapper, visualizer=visualizer)
     trainer.train()

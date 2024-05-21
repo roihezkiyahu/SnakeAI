@@ -71,18 +71,22 @@ class CNNDQNAgent(nn.Module):
 
 
 class DQN(nn.Module):
-    def __init__(self, n_observations, n_actions):
+    def __init__(self, layer_params, n_observations, n_actions):
         super(DQN, self).__init__()
-        self.layer1 = nn.Linear(n_observations+14, 256)
-        self.layer2 = nn.Linear(256, 128)
-        self.layer3 = nn.Linear(128, 64)
-        self.layer4 = nn.Linear(64, n_actions)
+        self.layers = nn.ModuleList()
+
+        input_size = n_observations
+        for params in layer_params:
+            output_size = params['out_features']
+            self.layers.append(nn.Linear(input_size, output_size))
+            input_size = output_size
+
+        self.output_layer = nn.Linear(input_size, n_actions)
 
     def forward(self, x):
-        x = F.relu(self.layer1(x))
-        x = F.relu(self.layer2(x))
-        x = F.relu(self.layer3(x))
-        return self.layer4(x)
+        for layer in self.layers:
+            x = F.relu(layer(x))
+        return self.output_layer(x)
 
 
 class ActorCritic(nn.Module):

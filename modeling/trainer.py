@@ -14,7 +14,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import csv
-from modeling.AtariGameWrapper import AtariGameWrapper
+from modeling.AtariGameWrapper import AtariGameWrapper, AtariGameViz
 
 class Trainer:
     def __init__(
@@ -45,14 +45,19 @@ class Trainer:
             validate_episodes=100,
             patience=3,
             n_actions=4,
-            game_wrapper=None
+            game_wrapper=None,
+            visualizer=None,
+            gif_fps=5,
+            reset_options=None
     ):
         if isinstance(game_wrapper, type(None)):
             game_wrapper = AtariGameWrapper(game)
+        if isinstance(visualizer, type(None)):
+            visualizer = AtariGameViz(game)
         self.use_ddqn = use_ddqn
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.game = game
-        self.visualizer = GameVisualizer_cv2(game)
+        self.visualizer = visualizer
         self.model = model.to(self.device)
         self.target_net = clone_model.to(self.device)
         self.episodes = episodes
@@ -90,6 +95,8 @@ class Trainer:
         self.validation_log = []
         self.n_actions = n_actions
         self.game_wrapper = game_wrapper
+        self.fps = gif_fps
+        self.reset_options = reset_options
 
     def choose_action(self, state, episode, validation=False):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -181,7 +188,7 @@ class Trainer:
         return False
 
     def run_episode(self, episode):
-        state, info = self.game_wrapper.reset()
+        state, info = self.game_wrapper.reset(self.reset_options)
         done, steps, rewards = False, 0, []
 
         while not done and steps <= self.max_episode_len:
@@ -190,7 +197,6 @@ class Trainer:
             obs, reward, terminated, truncated, _ = self.game_wrapper.step(action)
             done = terminated or truncated
             if self.check_failed_init(steps, done, episode, action, probs):
-                # rewards.append(reward)
                 break
             rewards.append(reward)
             if terminated:
@@ -218,7 +224,7 @@ class Trainer:
             image = self.visualizer.save_current_frame(game_action, probs)
             self.frames.append(image)
 
-    def print_epoch_summary(self, episode, relevant_rewards, relevant_scores, validation=False):  # TODO change to wapper?
+    def print_epoch_summary(self, episode, relevant_rewards, relevant_scores, validation=False):
         min_reward = int(np.nanmin(relevant_rewards))
         max_reward = int(np.nanmax(relevant_rewards))
         mean_reward = int(np.nanmean(relevant_rewards))
@@ -239,7 +245,7 @@ class Trainer:
     def log_and_compile_gif(self, episode):
         if (episode + 1) % self.save_gif_every_x_epochs == 0:
             gif_filename = f"{self.prefix_name}episode_{episode + 1}_score_{self.score_memory[-1]}.gif"
-            imageio.mimsave(gif_filename, self.visualizer.pad_frames_to_same_size(self.frames), fps=5, loop=0)
+            imageio.mimsave(gif_filename, self.visualizer.pad_frames_to_same_size(self.frames), fps=self.fps, loop=0)
             print(f"GIF saved for episode {episode + 1}.")
             self.frames = []  # Clear frames after saving
 
@@ -252,7 +258,8 @@ class Trainer:
     def run_validation_move(self, steps, state, validation_episode, total_reward,
                             viz_total_reward, viz_score):
         action, probs = self.choose_action(state, validation_episode, True)
-        state, reward, done, _, _ = self.game_wrapper.step(action)
+        obs, reward, terminated, truncated, _ = self.game_wrapper.step(action)
+        done = terminated or truncated
         if self.check_failed_init(steps, done, -10 if validation_episode != 0 else -1, action, probs):
             return True, np.nan, self.game_wrapper.get_score(), state, viz_total_reward, viz_score
 
@@ -274,7 +281,7 @@ class Trainer:
 
     def save_validation_gif(self, episode, viz_score):
         gif_filename = f"{self.prefix_name}val_episode_{episode + 1}_score_{viz_score}.gif"
-        imageio.mimsave(gif_filename, self.visualizer.pad_frames_to_same_size(self.frames), fps=5, loop=0)
+        imageio.mimsave(gif_filename, self.visualizer.pad_frames_to_same_size(self.frames), fps=self.fps, loop=0)
         print(f"GIF saved for episode {episode + 1}.")
         self.frames = []
 
@@ -327,7 +334,7 @@ class Trainer:
             self.scheduler.step(np.nanmean(scores))
             for param_group in self.optimizer.param_groups:
                 print("Current LR:", param_group['lr'])
-        self.validation_log.append({"episode": episode, "Mean Score": mean_score, "Median Score": np.nanmedian(scores)})
+        self.validation_log.append({"episode": episode+1, "Mean Score": mean_score, "Median Score": np.nanmedian(scores)})
         self.save_validation_csv()
         self.plot_validation_convergence()
 
@@ -335,7 +342,7 @@ class Trainer:
         for episode in range(self.episodes):
             total_reward, score = self.run_episode(episode)
             print(" " * 100, end="\r")
-            print(f"current reward: {total_reward}, current score: {score}", end="\r")
+            print(f"current episode: {episode}, current reward: {total_reward}, current score: {score}", end="\r")
             if np.isnan(total_reward):
                 print("debug")
             self.rewards_memory.append(total_reward)
