@@ -11,7 +11,10 @@ import torch.nn.functional as F
 import random
 import imageio
 import matplotlib
-matplotlib.use('TkAgg')
+try:
+    matplotlib.use('TkAgg')
+except:
+    print("no TkAgg")
 import matplotlib.pyplot as plt
 import csv
 from modeling.AtariGameWrapper import AtariGameWrapper, AtariGameViz
