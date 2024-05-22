@@ -19,6 +19,68 @@ import matplotlib.pyplot as plt
 import csv
 from modeling.AtariGameWrapper import AtariGameWrapper, AtariGameViz
 
+class Debugger:
+    def __init__(self, agent):
+        self.agent = agent
+        self.loss_history = []
+        self.gradient_norms = []
+        self.score_history = []
+        self.value_outputs = []
+
+    def track_loss(self, loss):
+        self.loss_history.append(loss.item())
+
+    def track_gradients(self):
+        gradients = []
+        for p in self.agent.model.parameters():
+            if p.grad is not None:
+                gradients.append(p.grad.norm().item())
+        self.gradient_norms.append(np.mean(gradients))
+
+    def track_scores(self, score):
+        self.score_history.extend(score)
+
+    def plot_loss(self, episodes):
+        plt.subplot(221)
+        plt.plot(episodes, self.loss_history, label='Loss')
+        plt.title('Losses over Time')
+        plt.xlabel('Optimization step')
+        plt.ylabel('Loss')
+        plt.legend()
+
+    def plot_grads(self, episodes):
+        plt.subplot(222)
+        plt.plot(episodes, self.gradient_norms, label='Gradient Norms')
+        plt.title('Gradient Norms over Time')
+        plt.xlabel('Optimization step')
+        plt.ylabel('Gradient Norm')
+        plt.legend()
+
+    def plot_scores(self, window):
+        plt.subplot(212)
+        scores = np.array(self.score_history)
+        n_scores = len(scores)
+        window = min(window, n_scores)
+        running_avg = np.convolve(scores, np.ones(window)/window, mode='same')
+        plt.plot(range(1, n_scores + 1), scores, label='Score')
+        plt.plot(range(1, n_scores + 1), running_avg, label='Running Average', linestyle='dashed')
+        plt.title('Rewards History')
+        plt.xlabel('Game Number')
+        plt.ylabel('Score')
+        plt.legend()
+
+    def plot_diagnostics(self, epoch, window=100):
+        episodes = range(len(self.loss_history))
+        plt.figure(figsize=(15, 10))
+        self.plot_loss(episodes)
+        self.plot_grads(episodes)
+        self.plot_scores(window)
+        plt.tight_layout()
+        filename = f"{self.agent.prefix_name}_{epoch}_diagnostics.png"
+        plt.savefig(filename)
+        print(f"Saved diagnostics to {filename}")
+        plt.close()
+
 class Trainer:
     def __init__(
             self,
@@ -52,7 +114,8 @@ class Trainer:
             visualizer=None,
             gif_fps=5,
             reset_options=None,
-            update_every_n_steps=1
+            update_every_n_steps=1,
+            save_diagnostics=2500
     ):
         if isinstance(game_wrapper, type(None)):
             game_wrapper = AtariGameWrapper(game)
@@ -102,6 +165,8 @@ class Trainer:
         self.fps = gif_fps
         self.reset_options = reset_options
         self.update_every_n_steps = update_every_n_steps
+        self.save_diagnostics = save_diagnostics
+        self.debugger = Debugger(self)
 
     def choose_action(self, state, episode, validation=False):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -163,6 +228,7 @@ class Trainer:
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch
         loss = (weights * F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1),
                                            reduction='none')).mean()
+        self.debugger.track_loss(loss)
         return loss, expected_state_action_values, state_action_values, indices
 
     def optimize_model(self):
@@ -171,13 +237,15 @@ class Trainer:
         loss, expected_state_action_values, state_action_values, indices = self.calc_loss()
         self.optimizer.zero_grad()
         loss.backward()
+        self.debugger.track_gradients()
         self.optimizer.step()
         with torch.no_grad():
             td_errors = (expected_state_action_values.unsqueeze(1) - state_action_values).abs().squeeze().cpu().numpy()
             self.memory.update_priorities(indices, td_errors)
 
     def check_failed_init(self, steps, done, episode, action, probs, debug=False):
-        game_action = self.game_wrapper.preprocessor.postprocess_action(action)
+        # game_action = self.game_wrapper.preprocessor.postprocess_action(action)
+        game_action = action
         if steps <= 1 and done:
             if debug:
                 print("failed attempt")
@@ -235,7 +303,9 @@ class Trainer:
                 break
             rewards.append(reward)
             state = obs
-        return np.sum(rewards), self.game_wrapper.get_score()
+        score = self.game_wrapper.get_score()
+        self.debugger.track_scores([score])
+        return np.sum(rewards), score
 
     def visualize_and_save_game_state(self, episode, game_action, probs):
         if (episode + 1) % self.save_gif_every_x_epochs == 0:
@@ -355,6 +425,9 @@ class Trainer:
     def train(self):
         for episode in range(self.episodes):
             total_reward, score = self.run_episode(episode)
+            if (episode + 1) % self.save_diagnostics == 0:
+                self.debugger.plot_diagnostics(episode + 1)
+                print(f"saved diagnostics episode: {episode + 1}")
             print(" " * 100, end="\r")
             print(f"current episode: {episode}, current reward: {total_reward}, current score: {score}", end="\r")
             if np.isnan(total_reward):

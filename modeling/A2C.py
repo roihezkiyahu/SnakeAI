@@ -14,6 +14,7 @@ try:
 except:
     print("no TkAgg")
 import os
+import random
 
 
 class A2CDebugger:
@@ -132,7 +133,7 @@ class A2CAgent(Trainer):
                          max_episode_len=max_episode_len, discount_rate=discount_rate,
                          validate_every_n_episodes=validate_every_n_episodes, validate_episodes=validate_episodes,
                          n_actions=n_actions, game_wrapper=game_wrapper, visualizer=visualizer, gif_fps=gif_fps,
-                         reset_options=reset_options)
+                         reset_options=reset_options, save_diagnostics=save_diagnostics)
         self.value_network = value_network.to(self.device)
         self.actor_network = actor_network.to(self.device)
         self.value_optimizer = optim.RMSprop(self.value_network.parameters(), lr=value_network_lr)
@@ -154,102 +155,128 @@ class A2CAgent(Trainer):
         return returns, advantages
 
     def training_batch(self, epochs, batch_size):
-        episode_count = 0
-        actions = np.zeros((batch_size,), dtype=np.int32)
-        dones = np.zeros((batch_size,), dtype=bool)
+        actions, dones, rewards, values, observations = self.initialize_batch_variables(batch_size)
+        obs, info = self.game_wrapper.reset(self.reset_options)
+        episode_count, total_reward, steps = 0, 0, 1
+        for epoch in range(epochs):
+            i = 0
+            while i < batch_size:
+                action, policy, value, obs_torch = self.get_action_and_value(obs)
+                actions[i], values[i], observations[i] = action, value, obs
+                obs, reward, done = self.step_game(action)
+                rewards[i], dones[i], total_reward = reward, done, total_reward + reward
+                i, steps, episode_count, total_reward, obs = self.handle_episode_end(i, done, steps, total_reward,
+                                                                                     episode_count, obs, policy, action)
+            self.update_model(observations, actions, rewards, dones, values, obs_torch)
+            self.save_diagnostics_if_needed(epoch)
+        print(f'The training was done over a total of {episode_count} episodes')
+
+    def initialize_batch_variables(self, batch_size):
+        actions, dones = np.zeros((batch_size,), dtype=np.int32), np.zeros((batch_size,), dtype=bool)
         rewards, values = np.zeros((2, batch_size), dtype=np.float32)
         observations = np.zeros((batch_size,) + self.input_shape, dtype=np.float32)
-        obs, info = self.game_wrapper.reset(self.reset_options)
-        total_reward, last_score, steps = 0, 0, 1
-        for epoch in range(epochs):
-            for i in range(batch_size):
-                observations[i] = obs
-                obs_torch = torch.tensor(obs, dtype=torch.float).unsqueeze(0).to(self.device)
-                values[i] = self.value_network(obs_torch).cpu().detach().numpy()
-                policy = self.actor_network(obs_torch)
-                action = Categorical(logits=policy).sample().cpu().detach().numpy()
-                actions[i] = action
-                obs, reward, terminated, truncated, _ = self.game_wrapper.step(action)
-                done = terminated or truncated
-                if self.check_failed_init(steps, done, epoch, action, policy):
-                    rewards[i] = 0
-                    obs, info = self.game_wrapper.reset(self.reset_options)
-                    continue
-                total_reward += reward
-                rewards[i], dones[i] = reward, done
+        return actions, dones, rewards, values, observations
 
-                if (episode_count + 1) % self.save_gif_every_x_epochs == 0:
-                    probs = torch.round(F.softmax(policy[0], dim=-1) * 100).cpu().int().tolist()
-                    self.visualize_and_save_game_state(episode_count,
-                                                       self.game_wrapper.preprocessor.postprocess_action(action), probs)
-                if dones[i]:
-                    obs, info = self.game_wrapper.reset(self.reset_options)
+    def get_action_and_value(self, obs):
+        obs_torch = torch.tensor(obs, dtype=torch.float).unsqueeze(0).to(self.device)
+        value = self.value_network(obs_torch).cpu().detach().numpy()
+        policy = self.actor_network(obs_torch)
+        action = Categorical(logits=policy).sample().cpu().detach().numpy()[0]
+        return action, policy, value, obs_torch
 
-                steps +=1
-                if steps >= self.max_episode_len:
-                    done = True
-                    obs, info = self.game_wrapper.reset(self.reset_options)
-                if done:
-                    score = self.game_wrapper.get_score()
-                    print(" " * 100, end="\r")
-                    print(f"episode: {episode_count}, reward: {total_reward}, score: {score}", end="\r")
-                    self.rewards_memory.append(total_reward)
-                    self.score_memory.append(score)
-                    self.log_and_compile_gif(episode_count)
-                    if (episode_count+1) % self.validate_every_n_episodes == 0 or epoch == epochs - 1:
-                        self.model = self.actor_network
-                        self.validate_score(episode_count)
-                    episode_count += 1
-                    self.debugger.track_scores([score])
-                    total_reward = 0
-                    steps = 0
+    def step_game(self, action):
+        obs, reward, terminated, truncated, _ = self.game_wrapper.step(action)
+        done = terminated or truncated
+        return obs, reward, done
 
-            if dones[-1]:
-                next_value = [0]
-            else:
-                next_value = self.value_network(obs_torch).cpu().detach().numpy()[0]
-            returns, advantages = self._returns_advantages(rewards, dones, values, next_value)
-            self.optimize_model(observations, actions, returns, advantages)
+    def handle_episode_end(self, i, done, steps, total_reward, episode_count, obs, policy, action):
+        if (episode_count + 1) % self.save_gif_every_x_epochs == 0:
+            probs = torch.round(F.softmax(policy[0], dim=-1) * 100).cpu().int().tolist()
+            self.visualize_and_save_game_state(episode_count, self.game_wrapper.preprocessor.postprocess_action(action),
+                                               probs)
+        if done or steps >= self.max_episode_len:
+            self.log_episode(episode_count, total_reward)
+            total_reward, steps, episode_count = 0, -1, episode_count + 1
+            obs, info = self.game_wrapper.reset(self.reset_options)
+        return i + 1, steps + 1, episode_count, total_reward, obs
 
-            if (epoch+1) % self.save_diagnostics == 0:
-                self.debugger.plot_diagnostics(epoch+1, self.validate_episodes)
-                print(f"saved diagnostics epoch: {epoch+1}")
+    def log_episode(self, episode_count, total_reward):
+        score = self.game_wrapper.get_score()
+        print(" " * 100, end="\r")
+        print(f"episode: {episode_count}, reward: {total_reward}, score: {score}", end="\r")
+        self.rewards_memory.append(total_reward)
+        self.score_memory.append(score)
+        self.log_and_compile_gif(episode_count)
+        if (episode_count + 1) % self.validate_every_n_episodes == 0:
+            self.model = self.actor_network
+            self.validate_score(episode_count)
+        self.debugger.track_scores([score])
 
-        print(f'The trainnig was done over a total of {episode_count} episodes')
+    def update_model(self, observations, actions, rewards, dones, values, obs_torch):
+        next_value = [0] if dones[-1] else self.value_network(obs_torch).cpu().detach().numpy()[0]
+        returns, advantages = self._returns_advantages(rewards, dones, values, next_value)
+        self.optimize_model(observations, actions, returns, advantages)
+
+    def save_diagnostics_if_needed(self, epoch):
+        if (epoch + 1) % self.save_diagnostics == 0:
+            self.debugger.plot_diagnostics(epoch + 1)
+            print(f"saved diagnostics epoch: {epoch + 1}")
 
     def optimize_model(self, observations, actions, returns, advantages):
-        actions = F.one_hot(torch.tensor(actions, dtype=torch.int64), 4).float().to(self.device)
+        actions, returns, advantages, observations = self.prepare_tensors(actions, returns, advantages, observations)
+        value_loss = self.optimize_value_network(observations, returns)
+        actor_loss, entropy = self.optimize_actor_network(observations, actions, advantages)
+        self.debugger.track_loss(actor_loss, value_loss)
+        self.debugger.track_policy_entropy(entropy.cpu().detach().numpy())
+
+    def prepare_tensors(self, actions, returns, advantages, observations):
+        actions = F.one_hot(torch.tensor(actions, dtype=torch.int64), self.n_actions).float().to(self.device)
         returns = torch.tensor(returns[:, None], dtype=torch.float).to(self.device)
         advantages = torch.tensor(advantages, dtype=torch.float).to(self.device)
         observations = torch.tensor(observations, dtype=torch.float).to(self.device)
+        return actions, returns, advantages, observations
 
+    def optimize_value_network(self, observations, returns):
         self.value_optimizer.zero_grad()
         values = self.value_network(observations)
-        value_loss = (0.5*(values-returns)**2).mean()
+        value_loss = (0.5 * (values - returns) ** 2).mean()
         value_loss.backward()
         self.debugger.track_gradients()
-        if self.clip_grad > 0:
-            utils.clip_grad_norm_(self.value_network.parameters(), self.clip_grad)
+        self.apply_grad_clip()
         self.value_optimizer.step()
+        return value_loss
 
+    def optimize_actor_network(self, observations, actions, advantages):
         self.actor_optimizer.zero_grad()
         policies = self.actor_network(observations)
-        probs = F.softmax(policies +1e-9, dim=-1)
-        log_probs = F.log_softmax(policies+1e-9, dim=-1)
-        log_action_probs = torch.sum(log_probs*actions, dim=1)
-        actor_loss = -(log_action_probs * advantages).mean()
-
-        entropy = -(probs * log_probs).sum(-1).mean()
-        actor_loss -= self.entropy_coefficient * entropy
-
+        actor_loss, entropy = self.compute_actor_loss_entropy(policies, actions, advantages)
         actor_loss.backward()
         self.debugger.track_gradients(True)
-        if self.clip_grad > 0:
-            utils.clip_grad_norm_(self.actor_network.parameters(), self.clip_grad)
+        self.apply_grad_clip(value=False)
         self.actor_optimizer.step()
+        return actor_loss, entropy
 
-        self.debugger.track_loss(actor_loss, value_loss)
-        self.debugger.track_policy_entropy(entropy.cpu().detach().numpy())
+    def apply_grad_clip(self, value=True):
+        if self.clip_grad > 0:
+            if value:
+                utils.clip_grad_norm_(self.value_network.parameters(), self.clip_grad)
+            else:
+                utils.clip_grad_norm_(self.actor_network.parameters(), self.clip_grad)
+
+    def compute_actor_loss_entropy(self, policies, actions, advantages):
+        probs, log_probs, log_action_probs = self.compute_probabilities(policies, actions)
+        actor_loss = -(log_action_probs * advantages).mean()
+        entropy = -(probs * log_probs).sum(-1).mean()
+        actor_loss -= self.entropy_coefficient * entropy
+        return actor_loss, entropy
+
+    @staticmethod
+    def compute_probabilities(policies, actions):
+        probs = F.softmax(policies + 1e-9, dim=-1)
+        log_probs = F.log_softmax(policies + 1e-9, dim=-1)
+        log_action_probs = torch.sum(log_probs * actions, dim=1)
+        return probs, log_probs, log_action_probs
+
 
 if __name__ == "__main__":
     conv_layers_params = [

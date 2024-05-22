@@ -212,8 +212,8 @@ class SnakeGameWrap:
                  add_death_indicators=True, direction=True, clear_path_pixels=False,
                  length_aware=True, reward_params={'death': -1.5, 'move': 0, 'food': 1.0,
                                                    'food_length_dependent': 0, 'death_length_dependent': 0},
-                 failed_init_val=-1.5, close_food_episodes_skip=100, close_food=2500, max_init_len=15,
-                 increasing_start_len=False):
+                 failed_init_val=-1.5, close_food_episodes_skip=100, close_food=2500, max_init_len=5,
+                 increasing_start_len=True, max_not_eaten=100):
         """
         Initialize the SnakeGameWrap class.
 
@@ -232,11 +232,13 @@ class SnakeGameWrap:
             close_food (int): number of episodes to use close food logic.
             max_init_len (int): maximum initiation length in a random start.
             increasing_start_len (bool): Whether to increase the staring length as the sanke gets better
+            max_not_eaten (int): maximum number of steps with no eaten fruits before reset
         """
         self.game = game
         self.last_score = 0
         self.episode = -1
         self.steps = 0
+        self.not_eaten_steps = 0
         self.val_mode = False
         self.last_start_prob = self.game.default_start_prob
         self.close_food = close_food
@@ -249,6 +251,7 @@ class SnakeGameWrap:
                                          add_death_indicators, direction, clear_path_pixels,
                                          length_aware)
         self.increasing_start_len = increasing_start_len
+        self.max_not_eaten = max_not_eaten
 
     def get_score(self):
         return self.game.score
@@ -282,6 +285,26 @@ class SnakeGameWrap:
         """
         return self.preprocessor.preprocess_state()
 
+    def update_eaten_status(self):
+        """
+        Updates 'not_eaten_steps'
+
+        Args:
+            last_score (int): the last recorded score of the snake
+
+        Returns:
+            truncated (bool): Whether the game was cut short
+        """
+        truncated = False
+        eaten = self.game.score > self.last_score
+        if not eaten:
+            self.not_eaten_steps +=1
+        else:
+            self.not_eaten_steps = 0
+        if self.not_eaten_steps > self.max_not_eaten:
+            truncated = True
+        return truncated
+
     def step(self, action):
         """
         Execute a step in the game.
@@ -295,11 +318,12 @@ class SnakeGameWrap:
         self.game.change_direction(self.preprocessor.postprocess_action(action))
         score, done = self.game.move()
         state = self.preprocess_state()
+        truncated = self.update_eaten_status()
         reward = self.compute_reward()
         self.steps += 1
         if done and self.val_mode:
             self.game.default_start_prob = self.last_start_prob
-        return state, reward, done, False, {"score": score}  # observation, reward, terminated, truncated, info
+        return state, reward, done, truncated, {"score": score}  # observation, reward, terminated, truncated, info
 
     def init_game_max_food_distance(self):
         if self.episode > self.close_food:
@@ -307,33 +331,28 @@ class SnakeGameWrap:
         else:
             self.game.max_food_distance = self.episode // self.close_food_episodes_skip + 1
 
-    # def check_failed_init(self, done, episode, game_action, probs, last_action, debug=False):
-    #     if self.steps <= 1 and done:
-    #         if debug:
-    #             print("failed attempt")
-    #             image = self.visualizer.save_current_frame(game_action, probs)
-    #             plt.imshow(image)
-    #             plt.show()
-    #             print(f"{last_action}, {game_action}")
-    #         if (episode + 1) % self.save_gif_every_x_epochs == 0:
-    #             self.visualize_and_save_game_state(episode, game_action, probs)
-    #         return True
-    #     return False
+    def validation_rest(self):
+        self.val_mode = True
+        self.last_start_prob = self.game.default_start_prob
+        self.game.default_start_prob = 1
+        self.game.max_food_distance = None
+        self.game.reset_game()
+        self.game.default_start_prob = self.last_start_prob
+
+    def train_reset(self):
+        self.val_mode = False
+        self.episode += 1
+        self.init_game_max_food_distance()
+        self.game.reset_game(random.randint(2, self.max_init_len))
 
     def reset(self, options={"validation": False}):
         self.steps = 0
         self.last_score = 0
+        self.not_eaten_steps = 0
         if options["validation"]:
-            self.val_mode = True
-            self.last_start_prob = self.game.default_start_prob
-            self.game.default_start_prob = 1
-            self.game.max_food_distance = None
-            self.game.reset_game()
+            self.validation_rest()
         else:
-            self.val_mode = False
-            self.episode += 1
-            self.init_game_max_food_distance()
-            self.game.reset_game(random.randint(2, self.max_init_len))
+            self.train_reset()
         state = self.preprocess_state()
         return state, None # state, info
 

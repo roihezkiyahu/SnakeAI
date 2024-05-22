@@ -1,7 +1,9 @@
-TODO A2C wrapper
-TODO PPO implementation
+~~TODO A2C wrapper~~
+~~TODO Trainer debugger~~
+TODO add observation stacking - based on memory argument
+TODO model versioning - saving the model while training
 TODO integrate config use
-TODO Trainer debugger
+TODO PPO implementation
 TODO reach score of 100
 
 # This Repo is still a work in process
