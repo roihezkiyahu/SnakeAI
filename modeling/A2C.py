@@ -2,12 +2,11 @@ from torch.nn import utils
 import torch
 import torch.optim as optim
 import numpy as np
-from processing import preprocess_state, postprocess_action
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-from trainer import Trainer
+from modeling.trainer import Trainer
 from SnakeGame.snake_game import SnakeGame
-from models import ActorCritic
+from modeling.models import ActorCritic
 import matplotlib
 from torch.distributions import Categorical
 try:

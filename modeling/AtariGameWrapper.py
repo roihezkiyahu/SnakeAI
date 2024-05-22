@@ -34,6 +34,8 @@ class AtariGameWrapper:
     def step(self, action):
         obs, reward, done, trunc, info = self.game.step(action)
         self.episode_rewards.append(reward)
+        if len(obs.shape) >= 3:
+            return np.moveaxis(obs, -1, 0), reward, done, trunc, info
         return obs, reward, done, trunc, info
 
     def reset(self, options=None):
@@ -44,8 +46,13 @@ class AtariGameWrapper:
             random_start_state = np.random.uniform(low, high)
             state, info = self.game.reset()
             self.game.unwrapped.state = np.array(random_start_state, dtype=state.dtype)
+            if len(self.game.unwrapped.state.shape) >= 3:
+                return np.moveaxis(self.game.unwrapped.state, -1, 0), info
             return self.game.unwrapped.state, info
-        return self.game.reset()
+        state, info = self.game.reset()
+        if len(state.shape) >= 3:
+            return np.moveaxis(state, -1, 0), info
+        return state, info
 
     def on_validation_end(self, episode, rewards, scores):
         pass

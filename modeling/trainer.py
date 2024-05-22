@@ -48,7 +48,8 @@ class Trainer:
             game_wrapper=None,
             visualizer=None,
             gif_fps=5,
-            reset_options=None
+            reset_options=None,
+            update_every_n_steps=1
     ):
         if isinstance(game_wrapper, type(None)):
             game_wrapper = AtariGameWrapper(game)
@@ -97,6 +98,7 @@ class Trainer:
         self.game_wrapper = game_wrapper
         self.fps = gif_fps
         self.reset_options = reset_options
+        self.update_every_n_steps = update_every_n_steps
 
     def choose_action(self, state, episode, validation=False):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -209,10 +211,11 @@ class Trainer:
         if self.check_failed_init(steps, done, episode, action, probs):
             return done, True
         next_state_tensor = self.get_next_state_tensor(terminated, obs)
-        self.memory.push(torch.tensor(state, device=self.device), torch.tensor([action], device=self.device),
+        self.memory.push(torch.tensor(state, device=self.device).to(torch.float32), torch.tensor([action], device=self.device),
                          next_state_tensor, torch.tensor([reward], device=self.device))
-        self.optimize_model()
-        self.update_target_net()
+        if (steps + 1) % self.update_every_n_steps == 0:
+            self.optimize_model()
+            self.update_target_net()
         self.save_gif_if_needed(episode, action, probs)
         return done, False
 
@@ -242,18 +245,18 @@ class Trainer:
         med_score, max_score = np.nanmedian(relevant_scores), np.nanmax(relevant_scores)
         if not validation:
             print(
-                f"Episodes {episode + 1 - self.n_memory_episodes}-{episode + 1}: Min Reward: {min_reward},"
-                f" Max Reward: {max_reward}, Mean Reward: {mean_reward}, Mean Score: {mean_score},"
-                f" Median Score: {med_score}, Max Score: {max_score}")
+                f"Episodes {episode + 1 - self.n_memory_episodes}-{episode + 1}: Min Reward: {min_reward:.2f},"
+                f" Max Reward: {max_reward:.2f}, Mean Reward: {mean_reward:.2f}, Mean Score: {mean_score:.2f},"
+                f" Median Score: {med_score:.2f}, Max Score: {max_score:.2f}")
         else:
             print(
-                f"Episode {episode +1} Validation: Min Reward: {min_reward},"
-                f" Max Reward: {max_reward}, Mean Reward: {mean_reward}, Mean Score: {mean_score},"
-                f" Median Score: {med_score}, Max Score: {max_score}, N Validation Games: {len(relevant_scores)}")
+                f"Episode {episode +1} Validation: Min Reward: {min_reward:.2f},"
+                f" Max Reward: {max_reward:.2f}, Mean Reward: {mean_reward:.2f}, Mean Score: {mean_score:.2f},"
+                f" Median Score: {med_score:.2f}, Max Score: {max_score:.2f}, N Validation Games: {len(relevant_scores)}")
 
     def log_and_compile_gif(self, episode):
         if (episode + 1) % self.save_gif_every_x_epochs == 0:
-            gif_filename = f"{self.prefix_name}episode_{episode + 1}_score_{self.score_memory[-1]}.gif"
+            gif_filename = f"{self.prefix_name}episode_{episode + 1}_score_{self.score_memory[-1]:.2f}.gif"
             imageio.mimsave(gif_filename, self.visualizer.pad_frames_to_same_size(self.frames), fps=self.fps, loop=0)
             print(f"GIF saved for episode {episode + 1}.")
             self.frames = []  # Clear frames after saving
@@ -270,21 +273,21 @@ class Trainer:
         obs, reward, terminated, truncated, _ = self.game_wrapper.step(action)
         done = terminated or truncated
         if self.check_failed_init(steps, done, -10 if validation_episode != 0 else -1, action, probs):
-            return True, np.nan, self.game_wrapper.get_score(), state, viz_total_reward, viz_score
+            return True, np.nan, self.game_wrapper.get_score(), obs, viz_total_reward, viz_score
         total_reward += reward
         if validation_episode == 0:
             self.visualize_and_save_game_state(self.save_gif_every_x_epochs - 1,
                                                self.game_wrapper.preprocessor.postprocess_action(action), probs)
             viz_total_reward, viz_score = total_reward, self.game_wrapper.get_score()
-        return done, total_reward, self.game_wrapper.get_score(), state, viz_total_reward, viz_score
+        return done, total_reward, self.game_wrapper.get_score(), obs, viz_total_reward, viz_score
 
     @staticmethod
     def pp_val_episode(scores, score, rewards, total_reward, validation_episode):
         scores.append(score)
         rewards.append(total_reward)
         print(" " * 100, end="\r")
-        print(f"val episode: {validation_episode + 1}, current validation reward: {total_reward},"
-              f" current score: {score}, n validation games: {len(scores)}", end="\r")
+        print(f"val episode: {validation_episode + 1}, current validation reward: {total_reward:.2f},"
+              f" current score: {score:.2f}, n validation games: {len(scores)}", end="\r")
         return scores, rewards
 
     def save_validation_gif(self, episode, viz_score):

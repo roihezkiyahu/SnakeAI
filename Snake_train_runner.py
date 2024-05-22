@@ -34,7 +34,8 @@ if __name__ == "__main__":
                      folder=os.path.join("logging", "morechannels_lessDimReduction_vistest"), save_gif_every_x_epochs=100,
                      max_episode_len=10000, n_memory_episodes=100,
                      use_ddqn=True, EPS_END=0, EPS_START=1, batch_size=512,
-                      EPS_DECAY=250, replaymemory=5000, game_wrapper=game_wrapper, visualizer=visualizer)
+                      EPS_DECAY=250, replaymemory=5000, game_wrapper=game_wrapper, visualizer=visualizer,
+                      reset_options={"validation": False})
     trainer.train()
 
 
@@ -66,6 +67,6 @@ if __name__ == "__main__":
                    value_network_lr=1e-5, actor_network_lr=1e-5,
                    validate_every_n_episodes=1000, validate_episodes=250, save_gif_every_x_epochs=2500,
                    max_episode_len=5000, input_shape=input_shape, n_memory_episodes=250, game_wrapper=game_wrapper,
-                   visualizer=visualizer)
+                   visualizer=visualizer, reset_options={"validation": False})
 
     A2C.training_batch(150000, 256)

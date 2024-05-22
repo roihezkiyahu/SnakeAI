@@ -10,7 +10,7 @@ class CNNDQNAgent(nn.Module):
                      {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1},
                      {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}
                  ],
-                 fc_layers=[256], dueling=False, reconnect_extra_features=True):
+                 fc_layers=[256], dueling=False, reconnect_extra_features=False):
         super(CNNDQNAgent, self).__init__()
         self.dueling = dueling
         self.conv_layers = nn.ModuleList([nn.Conv2d(**params) for params in conv_layers_params])
@@ -94,7 +94,8 @@ class DQN(nn.Module):
         if self.dueling:
             q_vals = self.dueling_forward(x)
         else:
-            q_vals = self._apply_layers(self.layers, x, True)
+            q_vals = self._apply_layers(self.layers, x)
+            q_vals = self.output_layer(q_vals)
         return q_vals
 
     @staticmethod
