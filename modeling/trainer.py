@@ -147,7 +147,7 @@ class Trainer:
         else:
             self.prefix_name = prefix_name
 
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate) if not optimizer else optimizer
+        self.optimizer = optim.RMSprop(self.model.parameters(), lr=self.learning_rate) if not optimizer else optimizer
         self.use_scheduler = use_scheduler
         if self.use_scheduler:
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='max', factor=0.5,

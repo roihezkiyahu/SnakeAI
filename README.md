@@ -1,6 +1,8 @@
 ~~TODO A2C wrapper~~
 ~~TODO Trainer debugger~~
-TODO add observation stacking - based on memory argument
+~~TODO grayscale option~~
+~~TODO add observation stacking - based on memory argument~~
+~~TODO random start~~
 TODO model versioning - saving the model while training
 TODO integrate config use
 TODO PPO implementation
