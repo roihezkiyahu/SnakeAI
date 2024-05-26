@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 
 
 class AtariGameViz:
@@ -23,16 +24,19 @@ class Preprocessor:
 
 
 class AtariGameWrapper:
-    def __init__(self, game):
+    def __init__(self, game, resize_img=None):
         self.game = game
         self.episode_rewards = []
         self.preprocessor = Preprocessor()
+        self.resize_img = resize_img
 
     def get_score(self):
         return np.sum(self.episode_rewards)
 
     def step(self, action):
         obs, reward, done, trunc, info = self.game.step(action)
+        if self.resize_img:
+            obs = cv2.resize(obs, dsize=self.resize_img, interpolation=cv2.INTER_CUBIC)
         self.episode_rewards.append(reward)
         if len(obs.shape) >= 3:
             return np.moveaxis(obs, -1, 0), reward, done, trunc, info
@@ -49,10 +53,12 @@ class AtariGameWrapper:
             if len(self.game.unwrapped.state.shape) >= 3:
                 return np.moveaxis(self.game.unwrapped.state, -1, 0), info
             return self.game.unwrapped.state, info
-        state, info = self.game.reset()
-        if len(state.shape) >= 3:
-            return np.moveaxis(state, -1, 0), info
-        return state, info
+        obs, info = self.game.reset()
+        if self.resize_img:
+            obs = cv2.resize(obs, dsize=self.resize_img, interpolation=cv2.INTER_CUBIC)
+        if len(obs.shape) >= 3:
+            return np.moveaxis(obs, -1, 0), info
+        return obs, info
 
     def on_validation_end(self, episode, rewards, scores):
         pass

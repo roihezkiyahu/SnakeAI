@@ -194,7 +194,9 @@ class A2CAgent(Trainer):
             probs = torch.round(F.softmax(policy[0], dim=-1) * 100).cpu().int().tolist()
             self.visualize_and_save_game_state(episode_count, self.game_wrapper.preprocessor.postprocess_action(action),
                                                probs)
-        if done or steps >= self.max_episode_len:
+        if steps >= self.max_episode_len:
+            done = True # for debug
+        if done:
             self.log_episode(episode_count, total_reward)
             total_reward, steps, episode_count = 0, -1, episode_count + 1
             obs, info = self.game_wrapper.reset(self.reset_options)
