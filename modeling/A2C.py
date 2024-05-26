@@ -114,6 +114,7 @@ class A2CAgent(Trainer):
                  folder="",
                  save_gif_every_x_epochs=500,
                  max_episode_len=10000,
+                 discount_rate=0.99,
                  validate_every_n_episodes=500,
                  validate_episodes=100,
                  entropy_coefficient=0.01,
@@ -129,7 +130,7 @@ class A2CAgent(Trainer):
         super().__init__(game, value_network, actor_network, gamma=gamma,
                          n_memory_episodes=n_memory_episodes, prefix_name=prefix_name, folder=folder,
                          save_gif_every_x_epochs=save_gif_every_x_epochs,
-                         max_episode_len=max_episode_len,
+                         max_episode_len=max_episode_len, discount_rate=discount_rate,
                          validate_every_n_episodes=validate_every_n_episodes, validate_episodes=validate_episodes,
                          n_actions=n_actions, game_wrapper=game_wrapper, visualizer=visualizer, gif_fps=gif_fps,
                          reset_options=reset_options, save_diagnostics=save_diagnostics)
@@ -193,9 +194,7 @@ class A2CAgent(Trainer):
             probs = torch.round(F.softmax(policy[0], dim=-1) * 100).cpu().int().tolist()
             self.visualize_and_save_game_state(episode_count, self.game_wrapper.preprocessor.postprocess_action(action),
                                                probs)
-        if steps >= self.max_episode_len:
-            done = True # for debug
-        if done:
+        if done or steps >= self.max_episode_len:
             self.log_episode(episode_count, total_reward)
             total_reward, steps, episode_count = 0, -1, episode_count + 1
             obs, info = self.game_wrapper.reset(self.reset_options)

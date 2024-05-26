@@ -18,7 +18,6 @@ except:
 import matplotlib.pyplot as plt
 import csv
 from modeling.AtariGameWrapper import AtariGameWrapper, AtariGameViz
-from torch.nn import utils
 
 class Debugger:
     def __init__(self, agent):
@@ -116,8 +115,7 @@ class Trainer:
             gif_fps=5,
             reset_options=None,
             update_every_n_steps=1,
-            save_diagnostics=2500,
-            clip_grad=0
+            save_diagnostics=2500
     ):
         if isinstance(game_wrapper, type(None)):
             game_wrapper = AtariGameWrapper(game)
@@ -169,7 +167,6 @@ class Trainer:
         self.update_every_n_steps = update_every_n_steps
         self.save_diagnostics = save_diagnostics
         self.debugger = Debugger(self)
-        self.clip_grad = clip_grad
 
     def choose_action(self, state, episode, validation=False):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -234,10 +231,6 @@ class Trainer:
         self.debugger.track_loss(loss)
         return loss, expected_state_action_values, state_action_values, indices
 
-    def apply_grad_clip(self):
-        if self.clip_grad > 0:
-                utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
-
     def optimize_model(self):
         if len(self.memory) < self.batch_size:
             return
@@ -245,7 +238,6 @@ class Trainer:
         self.optimizer.zero_grad()
         loss.backward()
         self.debugger.track_gradients()
-        # self.apply_grad_clip()
         self.optimizer.step()
         with torch.no_grad():
             td_errors = (expected_state_action_values.unsqueeze(1) - state_action_values).abs().squeeze().cpu().numpy()
