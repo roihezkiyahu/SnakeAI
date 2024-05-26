@@ -24,7 +24,7 @@ class Preprocessor:
     def preprocess_state(self, obs):
         if self.resize_img:
             obs = cv2.resize(obs, dsize=self.resize_img, interpolation=cv2.INTER_CUBIC)
-        if self.gray_scale:
+        if self.gray_scale and len(obs.shape) == 3:
             obs = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
         if len(obs.shape) >= 3:
             return np.moveaxis(obs, -1, 0)
@@ -65,7 +65,7 @@ class AtariGameWrapper:
 
     def step(self, action):
         obs, reward, done, trunc, info = self.game.step(action)
-        obs = self.preprocessor.preprocess_state(obs)
+        obs = self.preprocessor.preprocess_state(obs) # obs[5:13, 65:85] skiing flags left
         if self.stack_n_frames > 0:
             self.stacked_frames.append(obs)
             obs = np.vstack(self.stacked_frames)
@@ -99,4 +99,3 @@ class AtariGameWrapper:
 
     def on_validation_end(self, episode, rewards, scores):
         pass
-

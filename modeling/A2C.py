@@ -114,7 +114,6 @@ class A2CAgent(Trainer):
                  folder="",
                  save_gif_every_x_epochs=500,
                  max_episode_len=10000,
-                 discount_rate=0.99,
                  validate_every_n_episodes=500,
                  validate_episodes=100,
                  entropy_coefficient=0.01,
@@ -130,7 +129,7 @@ class A2CAgent(Trainer):
         super().__init__(game, value_network, actor_network, gamma=gamma,
                          n_memory_episodes=n_memory_episodes, prefix_name=prefix_name, folder=folder,
                          save_gif_every_x_epochs=save_gif_every_x_epochs,
-                         max_episode_len=max_episode_len, discount_rate=discount_rate,
+                         max_episode_len=max_episode_len,
                          validate_every_n_episodes=validate_every_n_episodes, validate_episodes=validate_episodes,
                          n_actions=n_actions, game_wrapper=game_wrapper, visualizer=visualizer, gif_fps=gif_fps,
                          reset_options=reset_options, save_diagnostics=save_diagnostics)
