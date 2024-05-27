@@ -18,6 +18,8 @@ except:
 import matplotlib.pyplot as plt
 import csv
 from modeling.AtariGameWrapper import AtariGameWrapper, AtariGameViz
+from torch.nn import utils
+import yaml
 
 class Debugger:
     def __init__(self, agent):
@@ -40,6 +42,12 @@ class Debugger:
     def track_scores(self, score):
         self.score_history.extend(score)
 
+    @staticmethod
+    def moving_average(a, window=3):
+        ret = np.cumsum(a, dtype=float)
+        ret[window:] = ret[window:] - ret[:-window]
+        return ret[window - 1:] / window
+
     def plot_loss(self, episodes):
         plt.subplot(221)
         plt.plot(episodes, self.loss_history, label='Loss')
@@ -61,9 +69,9 @@ class Debugger:
         scores = np.array(self.score_history)
         n_scores = len(scores)
         window = min(window, n_scores)
-        running_avg = np.convolve(scores, np.ones(window)/window, mode='same')
+        running_avg = np.convolve(scores, self.moving_average(scores, window), mode='same')
         plt.plot(range(1, n_scores + 1), scores, label='Score')
-        plt.plot(range(1, n_scores + 1), running_avg, label='Running Average', linestyle='dashed')
+        plt.plot(range(window, n_scores + 1), running_avg, label='Running Average', linestyle='dashed')
         plt.title('Rewards History')
         plt.xlabel('Game Number')
         plt.ylabel('Score')
@@ -81,92 +89,66 @@ class Debugger:
         print(f"Saved diagnostics to {filename}")
         plt.close()
 
+
 class Trainer:
-    def __init__(
-            self,
-            game,
-            model,
-            clone_model,
-            episodes=10000,
-            learning_rate=5e-5,
-            gamma=0.99,
-            n_memory_episodes=100,
-            prefix_name="",
-            folder="",
-            save_gif_every_x_epochs=500,
-            batch_size=512,
-            EPS_START=1,
-            EPS_END=0,
-            EPS_DECAY=250,
-            TAU=5e-3,
-            max_episode_len=10000,
-            use_ddqn=True,
-            replaymemory=10000,
-            optimizer=None,
-            discount_rate=0.99,
-            per_alpha=0.6,
-            use_scheduler=False,
-            validate_every_n_episodes=500,
-            validate_episodes=100,
-            patience=3,
-            n_actions=4,
-            game_wrapper=None,
-            visualizer=None,
-            gif_fps=5,
-            reset_options=None,
-            update_every_n_steps=1,
-            save_diagnostics=2500
-    ):
-        if isinstance(game_wrapper, type(None)):
-            game_wrapper = AtariGameWrapper(game)
-        if isinstance(visualizer, type(None)):
-            visualizer = AtariGameViz(game)
-        self.use_ddqn = use_ddqn
+    def __init__(self, config_path, model, clone_model):
+        if isinstance(config_path, str):
+            with open(config_path, 'r') as file:
+                config = yaml.safe_load(file)['trainer']
+        else:
+            config = config_path
+        self.episodes = int(config['episodes'])
+        self.learning_rate = float(config['learning_rate'])
+        self.gamma = float(config['gamma'])
+        self.n_memory_episodes = int(config['n_memory_episodes'])
+        self.save_gif_every_x_epochs = int(config['save_gif_every_x_epochs'])
+        self.batch_size = int(config['batch_size'])
+        self.EPS_START = float(config['EPS_START'])
+        self.EPS_END = float(config['EPS_END'])
+        self.EPS_DECAY = float(config['EPS_DECAY'])
+        self.TAU = float(config['TAU'])
+        self.max_episode_len = int(config['max_episode_len'])
+        self.use_ddqn = bool(config['use_ddqn'])
+        self.validate_every_n_episodes = int(config['validate_every_n_episodes'])
+        self.validate_episodes = int(config['validate_episodes'])
+        self.n_actions = int(config['n_actions'])
+        self.game_wrapper = config['game_wrapper']
+        self.game = self.game_wrapper.game
+        self.visualizer = config['visualizer']
+        self.fps = int(config['gif_fps'])
+        self.reset_options = config['reset_options']
+        self.update_every_n_steps = int(config['update_every_n_steps'])
+        self.save_diagnostics = int(config['save_diagnostics'])
+        self.clip_grad = float(config['clip_grad'])
+        self.save_model_every_n = int(config['save_model_every_n'])
+        if isinstance(self.game_wrapper, type(None)):
+            self.game_wrapper = AtariGameWrapper(self.game)
+        if isinstance(self.visualizer, type(None)):
+            self.visualizer = AtariGameViz(self.game)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.game = game
-        self.visualizer = visualizer
         self.model = model.to(self.device)
         self.target_net = clone_model.to(self.device)
-        self.episodes = episodes
-        self.learning_rate = learning_rate
-        self.gamma = gamma
-        self.n_memory_episodes = n_memory_episodes
-        self.batch_size = batch_size
-        self.EPS_START = EPS_START
-        self.EPS_END = EPS_END
-        self.EPS_DECAY = EPS_DECAY
-        self.TAU = TAU
-        self.max_episode_len = max_episode_len
-        self.save_gif_every_x_epochs = save_gif_every_x_epochs
-
-        if folder:
-            os.makedirs(folder, exist_ok=True)
-            self.prefix_name = os.path.join(folder, prefix_name)
+        if config['folder']:
+            os.makedirs(config['folder'], exist_ok=True)
+            self.prefix_name = os.path.join(config['folder'], config['prefix_name'])
         else:
-            self.prefix_name = prefix_name
+            self.prefix_name = config['prefix_name']
 
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate) if not optimizer else optimizer
-        self.use_scheduler = use_scheduler
+        self.optimizer = optim.Adam(self.model.parameters(),
+                                    lr=self.learning_rate) if not config['optimizer'] else config['optimizer']
+        self.use_scheduler = bool(config['use_scheduler'])
         if self.use_scheduler:
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='max', factor=0.5,
-                                                                        patience=patience, threshold=0.1, verbose=True)
-
+                                                                        patience=int(config['patience']),
+                                                                        threshold=0.1, verbose=True)
         self.criterion = nn.MSELoss()
         self.rewards_memory = []
         self.score_memory = []
         self.frames = []
-        self.memory = PERMemory(replaymemory, per_alpha)
-        self.discount_rate = discount_rate
-        self.validate_every_n_episodes = validate_every_n_episodes
-        self.validate_episodes = validate_episodes
+        self.memory = PERMemory(int(config['replaymemory']), float(config['per_alpha']))
         self.validation_log = []
-        self.n_actions = n_actions
-        self.game_wrapper = game_wrapper
-        self.fps = gif_fps
-        self.reset_options = reset_options
-        self.update_every_n_steps = update_every_n_steps
-        self.save_diagnostics = save_diagnostics
         self.debugger = Debugger(self)
+        self.best_model = {"model": None, "score": - np.inf}
 
     def choose_action(self, state, episode, validation=False):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -231,6 +213,10 @@ class Trainer:
         self.debugger.track_loss(loss)
         return loss, expected_state_action_values, state_action_values, indices
 
+    def apply_grad_clip(self):
+        if self.clip_grad > 0:
+                utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
+
     def optimize_model(self):
         if len(self.memory) < self.batch_size:
             return
@@ -238,6 +224,7 @@ class Trainer:
         self.optimizer.zero_grad()
         loss.backward()
         self.debugger.track_gradients()
+        # self.apply_grad_clip()
         self.optimizer.step()
         with torch.no_grad():
             td_errors = (expected_state_action_values.unsqueeze(1) - state_action_values).abs().squeeze().cpu().numpy()
@@ -371,8 +358,8 @@ class Trainer:
 
     def validate_score(self, episode):
         rewards, scores, done, viz_total_reward, viz_score = [], [], False, 0, 0
+        self.model.eval()
         for validation_episode in range(self.validate_episodes):
-            self.model.eval()
             state, info = self.game_wrapper.reset(options={"validation": True})
             score, total_reward, steps, done = 0, 0, 0, False
             with torch.no_grad():
@@ -415,12 +402,20 @@ class Trainer:
         self.model.train()
         self.save_validation_gif(episode, viz_score)
         if self.use_scheduler:
-            self.scheduler.step(np.nanmean(scores))
+            self.scheduler.step(mean_score)
             for param_group in self.optimizer.param_groups:
                 print("Current LR:", param_group['lr'])
         self.validation_log.append({"episode": episode+1, "Mean Score": mean_score, "Median Score": np.nanmedian(scores)})
         self.save_validation_csv()
         self.plot_validation_convergence()
+        if ((episode+1)//self.validate_every_n_episodes) % self.save_model_every_n == 0:
+            torch.save(self.model.state_dict(), f"{self.prefix_name}val_{episode+1}_score_{int(mean_score)}.pt")
+        if self.best_model["score"] < mean_score:
+            self.best_model = {"model": self.model, "score": mean_score}
+            torch.save(self.model.state_dict(),
+                       f"{self.prefix_name}best_model_{episode + 1}_score_{int(mean_score)}.pt")
+
+
 
     def train(self):
         for episode in range(self.episodes):
@@ -434,8 +429,6 @@ class Trainer:
                 print("debug")
             self.rewards_memory.append(total_reward)
             self.score_memory.append(score)
-
-            # Log performance statistics and compile GIF as configured
             self.log_and_compile_gif(episode)
             if (episode+1) % self.validate_every_n_episodes == 0:
                 self.validate_score(episode)

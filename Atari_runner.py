@@ -1,12 +1,31 @@
 from modeling.models import CNNDQNAgent, DQN, ActorCritic
 from modeling.trainer import Trainer
+from modeling.AtariGameWrapper import AtariGameWrapper
 import copy
 import os
 import gym
 import gymnasium as gymnas
 import ale_py
 from modeling.A2C import A2CAgent
+import yaml
 
+
+def train_agent(config_path, conv_layers_params, fc_layers, dueling, continuous=None):
+    with open(config_path, 'r') as file:
+        config = yaml.safe_load(file)
+    if not isinstance(continuous, type(None)):
+        game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'],continuous=continuous)
+    else:
+        game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'])
+    game_wrapper = AtariGameWrapper(game, config['atari_game_wrapper'])
+    state, info = game_wrapper.reset()
+    input_shape, output_size = state.shape, game.action_space.n
+    model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=dueling)
+    clone_model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=dueling)
+    config['trainer']['n_actions'] = output_size
+    config['trainer']['game_wrapper'] = game_wrapper
+    trainer = Trainer(config['trainer'], model, clone_model)
+    trainer.train()
 
 
 if __name__ == "__main__":
@@ -126,69 +145,46 @@ if __name__ == "__main__":
     #
     # trainer.train()
 
-    # BreakoutNoFrameskip
-    game = gym.make("BreakoutDeterministic-v4", render_mode="rgb_array")
     conv_layers_params = [
-        {'in_channels': 3, 'out_channels': 8, 'kernel_size': 9, 'stride': 4, 'padding': 1},
+        {'in_channels': 4, 'out_channels': 8, 'kernel_size': 7, 'stride': 4, 'padding': 1},
         {'in_channels': 8, 'out_channels': 16, 'kernel_size': 7, 'stride': 4, 'padding': 1},
         {'in_channels': 16, 'out_channels': 32, 'kernel_size': 5, 'stride': 2, 'padding': 1},
         {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}]
     fc_layers = [256, 128]
 
-    # state, info = game.reset()
-    # input_shape, output_size = (state.shape[2], state.shape[0], state.shape[1]), game.action_space.n
-    #
-    # model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=True)
-    # clone_model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=True)
-    #
-    # trainer = Trainer(game, model, clone_model, episodes=1000, learning_rate=5e-4,
-    #                   gamma=0.99, validate_every_n_episodes=100, n_memory_episodes=100,
-    #                  folder=os.path.join("logging", "BreakoutDeterministic_5e4_disc099_dueling"), save_gif_every_x_epochs=50,
-    #                  use_ddqn=True, EPS_END=0, EPS_START=1, batch_size=64, EPS_DECAY=200,
-    #                    max_episode_len=500, replaymemory=5000, n_actions=output_size, gif_fps=10, discount_rate=0.99,
-    #                   reset_options={'randomize_position': False}, per_alpha=0, update_every_n_steps=25)
-    #
-    # trainer.train()
 
+    # SpaceInvaders
+    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders.yaml")
+    dueling = True
+    train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
-    # SpaceInvadersNoFrameskip
-    game = gym.make("SpaceInvadersDeterministic-v4", render_mode="rgb_array")
-    state, info = game.reset()
-    input_shape, output_size = (state.shape[2], state.shape[0], state.shape[1]), game.action_space.n
+    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma999.yaml")
+    dueling = True
+    train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
-    model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=True)
-    clone_model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=True)
-
-    trainer = Trainer(game, model, clone_model, episodes=1000, learning_rate=1e-4,
-                      gamma=0.99, validate_every_n_episodes=100, n_memory_episodes=100,
-                     folder=os.path.join("logging", "SpaceInvadersDeterministic_1e4_disc095_test"),
-                      save_gif_every_x_epochs=50,
-                     use_ddqn=True, EPS_END=0, EPS_START=1, batch_size=64, EPS_DECAY=200,
-                       max_episode_len=1500, replaymemory=5000, n_actions=output_size, gif_fps=15, discount_rate=0.95,
-                      reset_options={'randomize_position': False}, per_alpha=0, update_every_n_steps=25,
-                      save_diagnostics=200)
-
-    trainer.train()
+    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_per06.yaml")
+    dueling = True
+    train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
     # MsPacmanNoFrameskip
-    game = gym.make("MsPacmanDeterministic-v4", render_mode="rgb_array")
-    state, info = game.reset()
-    input_shape, output_size = (state.shape[2], state.shape[0], state.shape[1]), game.action_space.n
+    config_path = os.path.join("modeling", "configs", "trainer_config_MsPacman.yaml")
+    dueling = True
+    train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
-    model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=True)
-    clone_model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=True)
+    # BreakoutNoFrameskip
+    config_path = os.path.join("modeling", "configs", "trainer_config_Breakout.yaml")
+    dueling = True
+    train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
-    trainer = Trainer(game, model, clone_model, episodes=1000, learning_rate=5e-4,
-                      gamma=0.99, validate_every_n_episodes=100, n_memory_episodes=100,
-                     folder=os.path.join("logging", "MsPacmanDeterministic_5e4_disc099_dueling"), save_gif_every_x_epochs=50,
-                     use_ddqn=True, EPS_END=0, EPS_START=1, batch_size=64, EPS_DECAY=200,
-                       max_episode_len=500, replaymemory=5000, n_actions=output_size, gif_fps=10, discount_rate=0.99,
-                      reset_options={'randomize_position': False}, per_alpha=0, update_every_n_steps=25)
+    # SkiingDeterministic
+    config_path = os.path.join("modeling", "configs", "trainer_config_Skiing.yaml")
+    dueling = True
+    train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
-    trainer.train()
 
     # CarRacing
-    game = gym.make("CarRacing-v2", render_mode="rgb_array", continuous=False)
+    config_path = os.path.join("modeling", "configs", "trainer_config_CarRacing.yaml", continuous=False)
+    dueling = True
     conv_layers_params = [
         {'in_channels': 3, 'out_channels': 3, 'kernel_size': 3, 'stride': 1, 'padding': 1, 'groups':3},
         {'in_channels': 3, 'out_channels': 8, 'kernel_size': 1, 'stride': 1},
@@ -196,17 +192,4 @@ if __name__ == "__main__":
         {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 4, 'padding': 1},
         {'in_channels': 32, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1}]
     fc_layers = [128]
-    state, info = game.reset()
-    input_shape, output_size = (state.shape[2], state.shape[0], state.shape[1]), game.action_space.n
-
-    model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=True)
-    clone_model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=True)
-
-    trainer = Trainer(game, model, clone_model, episodes=1000, learning_rate=5e-4,
-                      gamma=0.99, validate_every_n_episodes=100, n_memory_episodes=100,
-                     folder=os.path.join("logging", "CarRacing_5e4_disc099_dueling"), save_gif_every_x_epochs=50,
-                     use_ddqn=True, EPS_END=0, EPS_START=1, batch_size=64, EPS_DECAY=200,
-                       max_episode_len=500, replaymemory=5000, n_actions=output_size, gif_fps=10, discount_rate=0.99,
-                      reset_options={'randomize_position': False}, per_alpha=0, update_every_n_steps=25)
-
-    trainer.train()
+    train_agent(config_path, conv_layers_params, fc_layers, dueling)

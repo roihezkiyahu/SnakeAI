@@ -1,0 +1,41 @@
+trainer:
+  game: "MsPacmanDeterministic-v4"
+  render_mode: "rgb_array"
+  episodes: 2500
+  learning_rate: 5e-5
+  gamma: 0.95
+  n_memory_episodes: 100
+  prefix_name: ""
+  folder: "logging/MsPacmanDeterministic_5e4_dueling_stack4_gamma95"
+  save_gif_every_x_epochs: 50
+  batch_size: 128
+  EPS_START: 1
+  EPS_END: 0
+  EPS_DECAY: 250
+  TAU: 5e-4
+  max_episode_len: 2000
+  use_ddqn: true
+  replaymemory: 10000
+  optimizer: null
+  per_alpha: 0
+  use_scheduler: false
+  validate_every_n_episodes: 100
+  validate_episodes: 5
+  patience: 3
+  game_wrapper: null
+  visualizer: null
+  gif_fps: 20
+  update_every_n_steps: 10
+  save_diagnostics: 200
+  clip_grad: 0
+  save_model_every_n: 5
+  reset_options:
+    randomize_position: false
+
+atari_game_wrapper:
+  resize_img: [80, 105]
+  gray_scale: true
+  random_envs: 0
+  default_start_prob: 0.5
+  random_steps_range: [50, 300]
+  stack_n_frames: 4
