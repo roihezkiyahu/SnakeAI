@@ -69,7 +69,7 @@ class Debugger:
         scores = np.array(self.score_history)
         n_scores = len(scores)
         window = min(window, n_scores)
-        running_avg = np.convolve(scores, self.moving_average(scores, window), mode='same')
+        running_avg = self.moving_average(scores, window)
         plt.plot(range(1, n_scores + 1), scores, label='Score')
         plt.plot(range(window, n_scores + 1), running_avg, label='Running Average', linestyle='dashed')
         plt.title('Rewards History')
