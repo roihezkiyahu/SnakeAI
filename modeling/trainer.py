@@ -121,6 +121,7 @@ class Trainer:
         self.save_diagnostics = int(config['save_diagnostics'])
         self.clip_grad = float(config['clip_grad'])
         self.save_model_every_n = int(config['save_model_every_n'])
+        self.warmup_steps = int(config['warmup_steps'])
         if isinstance(self.game_wrapper, type(None)):
             self.game_wrapper = AtariGameWrapper(self.game)
         if isinstance(self.visualizer, type(None)):
@@ -158,7 +159,7 @@ class Trainer:
                 return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
         else:
             epsilon = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1. * episode / self.EPS_DECAY)
-            if torch.rand(1, device=self.device).item() < epsilon:
+            if torch.rand(1, device=self.device).item() < epsilon or len(self.memory) < self.warmup_steps:
                 return torch.randint(0, self.n_actions, (1,), device=self.device).item(), [0]*self.n_actions
             else:
                 with torch.no_grad():
@@ -218,7 +219,7 @@ class Trainer:
                 utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
 
     def optimize_model(self):
-        if len(self.memory) < self.batch_size:
+        if len(self.memory) < self.batch_size or len(self.memory) < self.warmup_steps:
             return
         loss, expected_state_action_values, state_action_values, indices = self.calc_loss()
         self.optimizer.zero_grad()

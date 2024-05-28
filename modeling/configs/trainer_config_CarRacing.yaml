@@ -1,7 +1,7 @@
 trainer:
   game: "BreakoutDeterministic-v4"
   render_mode: "rgb_array"
-  episodes: 2500
+  episodes: 5000
   learning_rate: 5e-4
   gamma: 0.99
   n_memory_episodes: 100
@@ -10,12 +10,12 @@ trainer:
   save_gif_every_x_epochs: 50
   batch_size: 128
   EPS_START: 1
-  EPS_END: 0
+  EPS_END: 0.05
   EPS_DECAY: 250
   TAU: 5e-4
   max_episode_len: 2000
   use_ddqn: true
-  replaymemory: 10000
+  replaymemory: 25000
   optimizer: null
   per_alpha: 0
   use_scheduler: false
@@ -31,6 +31,7 @@ trainer:
   save_model_every_n: 5
   reset_options:
     randomize_position: false
+  warmup_steps: 5000
 
 atari_game_wrapper:
   resize_img: [80, 105]

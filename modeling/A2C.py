@@ -107,7 +107,9 @@ class A2CDebugger:
         plt.close()
 
 class A2CAgent(Trainer):
-    def __init__(self, game, value_network, actor_network, value_network_lr=1e-4, actor_network_lr=1e-4,
+    def __init__(self, game, value_network, actor_network,
+                 value_network_lr=1e-4,
+                 actor_network_lr=1e-4,
                  gamma=0.99,
                  n_memory_episodes=100,
                  prefix_name="",

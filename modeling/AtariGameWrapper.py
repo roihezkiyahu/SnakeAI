@@ -64,6 +64,8 @@ class AtariGameWrapper:
         self.default_start_prob = float(config['default_start_prob'])
         self.random_steps_range = tuple(config['random_steps_range'])
         self.stack_n_frames = int(config['stack_n_frames'])
+        self.losing_live_penalty = int(config.get("losing_live_penalty", 0))
+        self.lives = 0
         self.stacked_frames = deque([], maxlen=self.stack_n_frames)
 
     def init_random_start(self):
@@ -80,11 +82,14 @@ class AtariGameWrapper:
 
     def step(self, action):
         obs, reward, done, trunc, info = self.game.step(action)
+        self.episode_rewards.append(reward)
+        if self.lives > info.get('lives', 0):
+            reward -= self.losing_live_penalty
+            self.lives = info.get('lives', 0)
         obs = self.preprocessor.preprocess_state(obs) # obs[5:13, 65:85] skiing flags left
         if self.stack_n_frames > 0:
             self.stacked_frames.append(obs)
             obs = np.vstack(self.stacked_frames)
-        self.episode_rewards.append(reward)
         return obs, reward, done, trunc, info
 
     def init_rand_pos(self):
@@ -101,7 +106,9 @@ class AtariGameWrapper:
         self.episode_rewards = []
         validation = options.get('validation', False)
         if options.get('randomize_position', False):
-            return self.init_rand_pos()
+            obs, info = self.init_rand_pos()
+            self.lives = info.get('lives')
+            return obs, info
         if random.random() > self.default_start_prob and not validation:
             obs, info = self.init_random_start()
         else:
@@ -110,6 +117,7 @@ class AtariGameWrapper:
         if self.stack_n_frames > 0:
             self.stacked_frames = deque([obs]*self.stack_n_frames, maxlen=self.stack_n_frames)
             obs = np.vstack(self.stacked_frames)
+        self.lives = info.get('lives', 0)
         return obs, info
 
     def on_validation_end(self, episode, rewards, scores):
