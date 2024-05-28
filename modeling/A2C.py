@@ -15,7 +15,7 @@ except:
     print("no TkAgg")
 import os
 import random
-
+import yaml
 
 class A2CDebugger:
     def __init__(self, agent):
@@ -106,44 +106,22 @@ class A2CDebugger:
         print(f"Saved diagnostics to {filename}")
         plt.close()
 
+
 class A2CAgent(Trainer):
-    def __init__(self, game, value_network, actor_network,
-                 value_network_lr=1e-4,
-                 actor_network_lr=1e-4,
-                 gamma=0.99,
-                 n_memory_episodes=100,
-                 prefix_name="",
-                 folder="",
-                 save_gif_every_x_epochs=500,
-                 max_episode_len=10000,
-                 validate_every_n_episodes=500,
-                 validate_episodes=100,
-                 entropy_coefficient=0.01,
-                 input_shape=(11, 12, 12),
-                 clip_grad=0,
-                 save_diagnostics=2500,
-                 n_actions=4,
-                 game_wrapper=None,
-                 visualizer=None,
-                 gif_fps=5,
-                 reset_options=None
-                 ):
-        super().__init__(game, value_network, actor_network, gamma=gamma,
-                         n_memory_episodes=n_memory_episodes, prefix_name=prefix_name, folder=folder,
-                         save_gif_every_x_epochs=save_gif_every_x_epochs,
-                         max_episode_len=max_episode_len,
-                         validate_every_n_episodes=validate_every_n_episodes, validate_episodes=validate_episodes,
-                         n_actions=n_actions, game_wrapper=game_wrapper, visualizer=visualizer, gif_fps=gif_fps,
-                         reset_options=reset_options, save_diagnostics=save_diagnostics)
+    def __init__(self, config_path, value_network, actor_network):
+        super().__init__(config_path, value_network, actor_network)
+        if isinstance(config_path, str):
+            with open(config_path, 'r') as file:
+                config = yaml.safe_load(file)['trainer']
+        else:
+            config = config_path
         self.value_network = value_network.to(self.device)
         self.actor_network = actor_network.to(self.device)
-        self.value_optimizer = optim.RMSprop(self.value_network.parameters(), lr=value_network_lr)
-        self.actor_optimizer = optim.RMSprop(self.actor_network.parameters(), lr=actor_network_lr)
-        self.entropy_coefficient = entropy_coefficient
-        self.input_shape = input_shape
+        self.value_optimizer = optim.RMSprop(self.value_network.parameters(), lr=config["value_network_lr"])
+        self.actor_optimizer = optim.RMSprop(self.actor_network.parameters(), lr=config["actor_network_lr"])
+        self.entropy_coefficient = config["entropy_coefficient"]
+        self.input_shape = config["input_shape"]
         self.debugger = A2CDebugger(self)
-        self.clip_grad = clip_grad
-        self.save_diagnostics = save_diagnostics
 
     def _returns_advantages(self, rewards, dones, values, next_value):
         returns = np.append(np.zeros_like(rewards), next_value, axis=0)
