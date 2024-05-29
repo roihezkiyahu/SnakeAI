@@ -48,24 +48,24 @@ class Debugger:
         ret[window:] = ret[window:] - ret[:-window]
         return ret[window - 1:] / window
 
-    def plot_loss(self, episodes):
-        plt.subplot(221)
+    def plot_loss(self, episodes, subplot=221):
+        plt.subplot(subplot)
         plt.plot(episodes, self.loss_history, label='Loss')
         plt.title('Losses over Time')
         plt.xlabel('Optimization step')
         plt.ylabel('Loss')
         plt.legend()
 
-    def plot_grads(self, episodes):
-        plt.subplot(222)
+    def plot_grads(self, episodes, subplot=222):
+        plt.subplot(subplot)
         plt.plot(episodes, self.gradient_norms, label='Gradient Norms')
         plt.title('Gradient Norms over Time')
         plt.xlabel('Optimization step')
         plt.ylabel('Gradient Norm')
         plt.legend()
 
-    def plot_scores(self, window):
-        plt.subplot(212)
+    def plot_scores(self, window, subplot=212):
+        plt.subplot(subplot)
         scores = np.array(self.score_history)
         n_scores = len(scores)
         window = min(window, n_scores)

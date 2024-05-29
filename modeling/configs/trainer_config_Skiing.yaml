@@ -1,7 +1,7 @@
 trainer:
   game: "SkiingDeterministic-v4"
   render_mode: "rgb_array"
-  episodes: 500
+  episodes: 10000
   learning_rate: 5e-4
   gamma: 0.99
   n_memory_episodes: 100
@@ -36,6 +36,7 @@ trainer:
   actor_network_lr: 1e-4 # for A2C only
   entropy_coefficient: 0.01 # for A2C only
   input_shape: (11, 12, 12) # for A2C only
+  epochs: 15000 # for A2C only
 
 atari_game_wrapper:
   resize_img: [80, 105]

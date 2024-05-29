@@ -10,20 +10,39 @@ from modeling.A2C import A2CAgent
 import yaml
 
 
-def train_agent(config_path, conv_layers_params, fc_layers, dueling, continuous=None):
+def train_a2c(config, game, game_wrapper, conv_layers_params, fc_layers):
+    state, info = game_wrapper.reset()
+    input_shape, output_size = state.shape, game.action_space.n
+    actor_model = ActorCritic(input_shape, output_size, conv_layers_params, fc_layers, mode='actor')
+    critic_model = ActorCritic(input_shape, output_size, conv_layers_params, fc_layers, mode='critic')
+    config["trainer"]["input_shape"] = input_shape
+    config['trainer']['n_actions'] = output_size
+    A2C = A2CAgent(config["trainer"], critic_model, actor_model)
+
+    A2C.training_batch(config["trainer"]["epochs"], config["trainer"]["batch_size"])
+
+
+def train_agent(config_path, conv_layers_params, fc_layers, dueling, continuous=None, a2c=False,
+                game_wrapper=None):
     with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
     if not isinstance(continuous, type(None)):
         game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'],continuous=continuous)
     else:
         game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'])
-    game_wrapper = AtariGameWrapper(game, config['atari_game_wrapper'])
+    if isinstance(game_wrapper, type(None)):
+        game_wrapper = AtariGameWrapper(game, config['atari_game_wrapper'])
+    else:
+        game_wrapper = game_wrapper(game, config['game_wrapper'])
+    config['trainer']['game_wrapper'] = game_wrapper
+    if a2c:
+        train_a2c(config, game, game_wrapper, conv_layers_params, fc_layers)
+        pass
     state, info = game_wrapper.reset()
     input_shape, output_size = state.shape, game.action_space.n
     model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=dueling)
     clone_model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=dueling)
     config['trainer']['n_actions'] = output_size
-    config['trainer']['game_wrapper'] = game_wrapper
     trainer = Trainer(config['trainer'], model, clone_model)
     trainer.train()
 
@@ -185,11 +204,11 @@ if __name__ == "__main__":
     # CarRacing
     config_path = os.path.join("modeling", "configs", "trainer_config_CarRacing.yaml", continuous=False)
     dueling = True
-    conv_layers_params = [
-        {'in_channels': 3, 'out_channels': 3, 'kernel_size': 3, 'stride': 1, 'padding': 1, 'groups':3},
-        {'in_channels': 3, 'out_channels': 8, 'kernel_size': 1, 'stride': 1},
-        {'in_channels': 8, 'out_channels': 16, 'kernel_size': 3, 'stride': 4, 'padding': 1},
-        {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 4, 'padding': 1},
-        {'in_channels': 32, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1}]
-    fc_layers = [128]
+    # conv_layers_params = [
+    #     {'in_channels': 4, 'out_channels': 4, 'kernel_size': 3, 'stride': 1, 'padding': 1, 'groups':4},
+    #     {'in_channels': 4, 'out_channels': 8, 'kernel_size': 1, 'stride': 1},
+    #     {'in_channels': 8, 'out_channels': 16, 'kernel_size': 3, 'stride': 4, 'padding': 1},
+    #     {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 4, 'padding': 1},
+    #     {'in_channels': 32, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1}]
+    # fc_layers = [128]
     train_agent(config_path, conv_layers_params, fc_layers, dueling)

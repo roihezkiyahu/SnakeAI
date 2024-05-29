@@ -16,8 +16,9 @@ except:
 import os
 import random
 import yaml
+from modeling.trainer import Debugger
 
-class A2CDebugger:
+class A2CDebugger():
     def __init__(self, agent):
         self.agent = agent
         self.loss_history = []
@@ -85,9 +86,11 @@ class A2CDebugger:
     def plot_scores(self, window):
         plt.subplot(224)
         scores = np.array(self.score_history)
-        running_avg = np.convolve(scores, np.ones(window)/window, mode='valid')
-        plt.plot(range(1, len(scores) + 1), scores, label='Score')
-        plt.plot(range(window, len(scores) + 1), running_avg, label='Running Average', linestyle='dashed')
+        n_scores = len(scores)
+        window = min(window, n_scores)
+        running_avg = Debugger.moving_average(scores, window)
+        plt.plot(range(1, n_scores + 1), scores, label='Score')
+        plt.plot(range(window, n_scores + 1), running_avg, label='Running Average', linestyle='dashed')
         plt.title('Rewards History')
         plt.xlabel('Game Number')
         plt.ylabel('Score')
@@ -117,10 +120,11 @@ class A2CAgent(Trainer):
             config = config_path
         self.value_network = value_network.to(self.device)
         self.actor_network = actor_network.to(self.device)
-        self.value_optimizer = optim.RMSprop(self.value_network.parameters(), lr=config["value_network_lr"])
-        self.actor_optimizer = optim.RMSprop(self.actor_network.parameters(), lr=config["actor_network_lr"])
-        self.entropy_coefficient = config["entropy_coefficient"]
-        self.input_shape = config["input_shape"]
+        self.value_optimizer = optim.RMSprop(self.value_network.parameters(), lr=float(config["value_network_lr"]))
+        self.actor_optimizer = optim.RMSprop(self.actor_network.parameters(), lr=float(config["actor_network_lr"]))
+        self.entropy_coefficient = float(config["entropy_coefficient"])
+        input_shape = config["input_shape"]
+        self.input_shape = eval(input_shape) if isinstance(input_shape, str) else input_shape
         self.debugger = A2CDebugger(self)
 
     def _returns_advantages(self, rewards, dones, values, next_value):
