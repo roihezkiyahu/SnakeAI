@@ -166,19 +166,6 @@ class Trainer:
                     probs = self.model(state_tensor)
                     return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
 
-    def compute_loss(self, log_probs, rewards):
-        discounted_rewards = self.discount_rewards(rewards, self.discount_rate)
-        loss = -torch.sum(torch.stack(log_probs) * torch.FloatTensor(discounted_rewards).to(self.device))
-        return loss
-
-    def discount_rewards(self, rewards):
-        discounted = np.zeros_like(rewards)
-        R = 0
-        for t in reversed(range(len(rewards))):
-            R = rewards[t] + self.discount_rate * R
-            discounted[t] = R
-        return discounted
-
     def get_batch(self):
         transitions, indices, weights = self.memory.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
@@ -293,6 +280,7 @@ class Trainer:
             state = obs
         score = self.game_wrapper.get_score()
         self.debugger.track_scores([score])
+        self.game_wrapper.game.close()
         return np.sum(rewards), score
 
     def visualize_and_save_game_state(self, episode, game_action, probs):
@@ -370,6 +358,7 @@ class Trainer:
                                                        viz_total_reward, viz_score)
                     done, total_reward, score, state, viz_total_reward, viz_score = run_res
                 scores, rewards = self.pp_val_episode(scores, score, rewards, total_reward, validation_episode)
+                self.game_wrapper.game.close()
         self.on_validation_end(episode, rewards, scores, viz_score)
 
     def save_validation_csv(self):

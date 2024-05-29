@@ -37,6 +37,7 @@ class Preprocessor:
     def __init__(self, config):
         self.resize_img = config['resize_img']
         self.gray_scale = config['gray_scale']
+        self.normalize_factor = float(config['normalize_factor'])
 
     def preprocess_state(self, obs):
         if self.resize_img:
@@ -47,7 +48,7 @@ class Preprocessor:
             return np.moveaxis(obs, -1, 0)
         if len(obs.shape) == 2:
             return np.expand_dims(obs, 0)
-        return obs
+        return obs/self.normalize_factor
 
 
     @staticmethod
@@ -65,6 +66,7 @@ class AtariGameWrapper:
         self.random_steps_range = tuple(config['random_steps_range'])
         self.stack_n_frames = int(config['stack_n_frames'])
         self.losing_live_penalty = int(config.get("losing_live_penalty", 0))
+        self.initial_frame_skip = int(config.get("initial_frame_skip", 0))
         self.lives = 0
         self.stacked_frames = deque([], maxlen=self.stack_n_frames)
 
@@ -104,6 +106,7 @@ class AtariGameWrapper:
 
     def reset(self, options={}):
         self.episode_rewards = []
+        rand_start = False
         validation = options.get('validation', False)
         if options.get('randomize_position', False):
             obs, info = self.init_rand_pos()
@@ -111,6 +114,7 @@ class AtariGameWrapper:
             return obs, info
         if random.random() > self.default_start_prob and not validation:
             obs, info = self.init_random_start()
+            rand_start = True
         else:
             obs, info = self.game.reset(seed=np.random.randint(0, 10000))
         obs = self.preprocessor.preprocess_state(obs)
@@ -118,6 +122,9 @@ class AtariGameWrapper:
             self.stacked_frames = deque([obs]*self.stack_n_frames, maxlen=self.stack_n_frames)
             obs = np.vstack(self.stacked_frames)
         self.lives = info.get('lives', 0)
+        if not rand_start:
+            for i in range(self.initial_frame_skip):
+                obs, _, _, _, info = self.step(0)
         return obs, info
 
     def on_validation_end(self, episode, rewards, scores):

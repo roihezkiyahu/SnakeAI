@@ -6,6 +6,7 @@
 ~~TODO model versioning - saving the model while training~~
 ~~TODO losing lives reward shaping~~
 ~~TODO add complete random games at the start of training~~
+TODO add frame skipping at the start of the game 
 TODO integrate config use: ~~Trainer~~ A2C, Snake
 TODO PPO implementation
 TODO reach score of 100
