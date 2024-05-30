@@ -1,13 +1,13 @@
 trainer:
-  game: "MsPacmanDeterministic-v4"
+  game: "MsPacmanNoFrameskip-v4"
   render_mode: "rgb_array"
   episodes: 10000
   learning_rate: 5e-5
   gamma: 0.95
   n_memory_episodes: 100
   prefix_name: ""
-  folder: "logging/MsPacmanDeterministic_5e4_gamma95_llp100"
-  save_gif_every_x_epochs: 50
+  folder: "logging/MsPacmanNoFrameskip_5e4_gamma95_llp100"
+  save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1
   EPS_END: 0.05
@@ -19,7 +19,7 @@ trainer:
   optimizer: null
   per_alpha: 0
   use_scheduler: false
-  validate_every_n_episodes: 100
+  validate_every_n_episodes: 250
   validate_episodes: 5
   patience: 3
   game_wrapper: null
@@ -47,3 +47,4 @@ atari_game_wrapper:
   stack_n_frames: 4
   losing_live_penalty: 100
   normalize_factor: 255
+  frame_skip: 4

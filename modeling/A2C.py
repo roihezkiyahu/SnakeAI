@@ -10,7 +10,7 @@ from modeling.models import ActorCritic
 import matplotlib
 from torch.distributions import Categorical
 try:
-    matplotlib.use('TkAgg')
+    matplotlib.use('Agg')
 except:
     print("no TkAgg")
 import os

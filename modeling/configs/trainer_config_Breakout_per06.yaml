@@ -1,13 +1,13 @@
 trainer:
-  game: "BreakoutDeterministic-v4"
+  game: "BreakoutNoFrameskip-v4"
   render_mode: "rgb_array"
   episodes: 10000
   learning_rate: 1e-4
   gamma: 0.95
   n_memory_episodes: 100
   prefix_name: ""
-  folder: "logging/BreakoutDeterministic_llp5_per06"
-  save_gif_every_x_epochs: 50
+  folder: "logging/BreakoutNoFrameskip_llp5_per06"
+  save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1
   EPS_END: 0.1
@@ -19,7 +19,7 @@ trainer:
   optimizer: null
   per_alpha: 0.6
   use_scheduler: false
-  validate_every_n_episodes: 100
+  validate_every_n_episodes: 250
   validate_episodes: 5
   patience: 3
   game_wrapper: null
@@ -47,3 +47,4 @@ atari_game_wrapper:
   stack_n_frames: 4
   losing_live_penalty: 1
   normalize_factor: 255
+  frame_skip: 4

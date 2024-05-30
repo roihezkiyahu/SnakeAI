@@ -1,5 +1,5 @@
 trainer:
-  game: "SpaceInvadersDeterministic-v4"
+  game: "SpaceInvadersNoFrameskip-v4"
   render_mode: "rgb_array"
   episodes: 10000
   learning_rate: 5e-4
@@ -7,7 +7,7 @@ trainer:
   n_memory_episodes: 100
   prefix_name: ""
   folder: ""
-  save_gif_every_x_epochs: 50
+  save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1
   EPS_END: 0.05
@@ -19,8 +19,8 @@ trainer:
   optimizer: null
   per_alpha: 0
   use_scheduler: false
-  validate_every_n_episodes: 100
-  validate_episodes: 5
+  validate_every_n_episodes: 250
+  validate_episodes: 50
   patience: 3
   game_wrapper: null
   visualizer: null
@@ -47,3 +47,4 @@ atari_game_wrapper:
   stack_n_frames: 4
   losing_live_penalty: 1
   normalize_factor: 255
+  frame_skip: 4

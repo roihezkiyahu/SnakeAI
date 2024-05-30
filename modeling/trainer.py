@@ -12,7 +12,7 @@ import random
 import imageio
 import matplotlib
 try:
-    matplotlib.use('TkAgg')
+    matplotlib.use('Agg')
 except:
     print("no TkAgg")
 import matplotlib.pyplot as plt
@@ -20,6 +20,8 @@ import csv
 from modeling.AtariGameWrapper import AtariGameWrapper, AtariGameViz
 from torch.nn import utils
 import yaml
+import threading
+import queue
 
 class Debugger:
     def __init__(self, agent):
@@ -150,6 +152,17 @@ class Trainer:
         self.validation_log = []
         self.debugger = Debugger(self)
         self.best_model = {"model": None, "score": - np.inf}
+        self.queue = queue.Queue()
+        self.queue_processor_thread = threading.Thread(target=self.process_queue)
+        self.queue_processor_thread.daemon = True
+        self.queue_processor_thread.start()
+
+    def process_queue(self):
+        while True:
+            task = self.queue.get()
+            if task is None:
+                break
+            task()
 
     def choose_action(self, state, episode, validation=False):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -245,12 +258,15 @@ class Trainer:
         self.target_net.load_state_dict(target_dict)
 
     def save_gif_if_needed(self, episode, action, probs):
-        if (episode + 1) % self.save_gif_every_x_epochs == 0:
+        def task():
             self.visualize_and_save_game_state(
                 episode,
                 self.game_wrapper.preprocessor.postprocess_action(action),
                 probs
             )
+
+        if (episode + 1) % self.save_gif_every_x_epochs == 0:
+            self.queue.put(task)
 
     def process_episode_step(self, steps, episode, action, probs, reward, terminated, truncated, state, obs):
         done = terminated or truncated
@@ -284,9 +300,12 @@ class Trainer:
         return np.sum(rewards), score
 
     def visualize_and_save_game_state(self, episode, game_action, probs):
-        if (episode + 1) % self.save_gif_every_x_epochs == 0:
+        def task():
             image = self.visualizer.save_current_frame(game_action, probs)
             self.frames.append(image)
+
+        if (episode + 1) % self.save_gif_every_x_epochs == 0:
+            self.queue.put(task)
 
     def print_epoch_summary(self, episode, relevant_rewards, relevant_scores, validation=False):
         min_reward, max_reward = int(np.nanmin(relevant_rewards)), int(np.nanmax(relevant_rewards))
@@ -405,7 +424,9 @@ class Trainer:
             torch.save(self.model.state_dict(),
                        f"{self.prefix_name}best_model_{episode + 1}_score_{int(mean_score)}.pt")
 
-
+    def shutdown(self):
+        self.queue.put(None)
+        self.queue_processor_thread.join()
 
     def train(self):
         for episode in range(self.episodes):

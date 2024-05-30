@@ -2,7 +2,7 @@ import numpy as np
 import math
 import random
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 class Preprocessor:

@@ -22,29 +22,66 @@ def train_a2c(config, game, game_wrapper, conv_layers_params, fc_layers):
     A2C.training_batch(config["trainer"]["epochs"], config["trainer"]["batch_size"])
 
 
-def train_agent(config_path, conv_layers_params, fc_layers, dueling, continuous=None, a2c=False,
-                game_wrapper=None):
+def load_config(config_path):
     with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
-    if not isinstance(continuous, type(None)):
-        game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'],continuous=continuous)
+    return config
+
+
+def initialize_game(config, continuous):
+    if continuous is not None:
+        game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'],
+                        continuous=continuous, frameskip=config['atari_game_wrapper']['frame_skip'])
     else:
-        game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'])
-    if isinstance(game_wrapper, type(None)):
+        game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'],
+                        frameskip=config['atari_game_wrapper']['frame_skip'])
+    return game
+
+
+def get_game_wrapper(game, config, game_wrapper):
+    if game_wrapper is None:
         game_wrapper = AtariGameWrapper(game, config['atari_game_wrapper'])
     else:
         game_wrapper = game_wrapper(game, config['game_wrapper'])
+    return game_wrapper
+
+
+def initialize_trainer(config, model, clone_model):
+    return Trainer(config['trainer'], model, clone_model)
+
+
+def create_models(config, game_wrapper, conv_layers_params, fc_layers, dueling, use_cnn=True):
+    state, info = game_wrapper.reset()
+    input_shape, output_size = state.shape, game_wrapper.game.action_space.n
+
+    if use_cnn:
+        model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=dueling)
+        clone_model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=dueling)
+    else:
+        n_observations = state.shape[0]
+        model = DQN(fc_layers, n_observations, output_size)
+        clone_model = DQN(fc_layers, n_observations, output_size)
+
+    config['trainer']['n_actions'] = output_size
+    return model, clone_model
+
+
+def train_agent(config_path, conv_layers_params, fc_layers, dueling, continuous=None, a2c=False,
+                game_wrapper=None, use_cnn=True):
+    config = load_config(config_path)
+    game = initialize_game(config, continuous)
+    game_wrapper = get_game_wrapper(game, config, game_wrapper)
     config['trainer']['game_wrapper'] = game_wrapper
     if a2c:
         train_a2c(config, game, game_wrapper, conv_layers_params, fc_layers)
-        pass
-    state, info = game_wrapper.reset()
-    input_shape, output_size = state.shape, game.action_space.n
-    model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=dueling)
-    clone_model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=dueling)
-    config['trainer']['n_actions'] = output_size
-    trainer = Trainer(config['trainer'], model, clone_model)
-    trainer.train()
+        return
+
+    model, clone_model = create_models(config, game_wrapper, conv_layers_params, fc_layers, dueling, use_cnn)
+    trainer = initialize_trainer(config, model, clone_model)
+    try:
+        trainer.train()
+    finally:
+        trainer.shutdown()
 
 
 if __name__ == "__main__":
@@ -173,9 +210,9 @@ if __name__ == "__main__":
 
 
     # SpaceInvaders
-    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders.yaml")
-    # dueling = True
-    # train_agent(config_path, conv_layers_params, fc_layers, dueling)
+    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders.yaml")
+    dueling = True
+    train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
     config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_per06.yaml")
     dueling = True

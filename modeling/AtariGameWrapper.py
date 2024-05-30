@@ -105,6 +105,7 @@ class AtariGameWrapper:
         return obs, info
 
     def reset(self, options={}):
+        np.random.seed(np.random.randint(0, 10000))
         self.episode_rewards = []
         rand_start = False
         validation = options.get('validation', False)
