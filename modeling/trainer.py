@@ -94,7 +94,7 @@ class Debugger:
 
 class Trainer:
     def __init__(self, config_path, model, clone_model):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_avafilable() else "cpu")
         if isinstance(config_path, str):
             with open(config_path, 'r') as file:
                 config = yaml.safe_load(file)['trainer']
@@ -165,7 +165,12 @@ class Trainer:
             task()
 
     def choose_action(self, state, episode, validation=False):
-        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+        # Ensure state is a tensor and move it to the correct device
+        if not isinstance(state, torch.Tensor):
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+        else:
+            state_tensor = state.unsqueeze(0).to(self.device)
+
         if validation:
             with torch.no_grad():
                 probs = self.model(state_tensor)
@@ -173,11 +178,12 @@ class Trainer:
         else:
             epsilon = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1. * episode / self.EPS_DECAY)
             if torch.rand(1, device=self.device).item() < epsilon or len(self.memory) < self.warmup_steps:
-                return torch.randint(0, self.n_actions, (1,), device=self.device).item(), [0]*self.n_actions
+                return torch.randint(0, self.n_actions, (1,), device=self.device).item(), [0] * self.n_actions
             else:
                 with torch.no_grad():
                     probs = self.model(state_tensor)
                     return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
+
 
     def get_batch(self):
         transitions, indices, weights = self.memory.sample(self.batch_size)
