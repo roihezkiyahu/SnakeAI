@@ -185,6 +185,7 @@ class Trainer:
                     return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
 
 
+
     def get_batch(self):
         transitions, indices, weights = self.memory.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
@@ -252,10 +253,12 @@ class Trainer:
         return False
 
     @staticmethod
-    def get_next_state_tensor(terminated, obs):
+    def get_next_state_tensor(terminated, obs, device):
         if terminated:
             return None
-        return torch.FloatTensor(obs).unsqueeze(0)
+        if not isinstance(obs, torch.Tensor):
+            return torch.FloatTensor(obs).unsqueeze(0).to(device)
+        return obs.unsqueeze(0).to(device)
 
     def update_target_net(self):
         target_dict, policy_dict = self.target_net.state_dict(), self.model.state_dict()
@@ -278,10 +281,11 @@ class Trainer:
         done = terminated or truncated
         if self.check_failed_init(steps, done, episode, action, probs):
             return done, True
-        next_state_tensor = self.get_next_state_tensor(terminated, obs)
-        self.memory.push(torch.tensor(state, device=self.device).to(torch.float32), torch.tensor([action],
-                                                                                                 device=self.device),
-                         next_state_tensor, torch.tensor([reward], device=self.device))
+        next_state_tensor = self.get_next_state_tensor(terminated, obs, self.device)  # Pass device
+        self.memory.push(torch.tensor(state, device=self.device).to(torch.float32),  # Ensure state is on device
+                         torch.tensor([action], device=self.device),  # Ensure action is on device
+                         next_state_tensor,
+                         torch.tensor([reward], device=self.device))  # Ensure reward is on device
         if (steps + 1) % self.update_every_n_steps == 0:
             self.optimize_model()
             self.update_target_net()
