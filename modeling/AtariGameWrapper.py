@@ -1,11 +1,14 @@
-import numpy as np
+import torch
+import torch.nn.functional as F
 import cv2
 from collections import deque
 import random
+import numpy as np
 
 class AtariGameViz:
-    def __init__(self, game):
+    def __init__(self, game, device):
         self.game = game
+        self.device = device
 
     def save_current_frame(self, game_action, probs):
         img = self.game.render()
@@ -34,22 +37,24 @@ class AtariGameViz:
 
 
 class Preprocessor:
-    def __init__(self, config):
+    def __init__(self, config, device):
         self.resize_img = config['resize_img']
         self.gray_scale = config['gray_scale']
         self.normalize_factor = float(config['normalize_factor'])
+        self.device = device
 
     def preprocess_state(self, obs):
-        if self.resize_img:
-            obs = cv2.resize(obs, dsize=self.resize_img, interpolation=cv2.INTER_CUBIC)
-        if self.gray_scale and len(obs.shape) == 3:
-            obs = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
-        if len(obs.shape) >= 3:
-            return np.moveaxis(obs, -1, 0)
+        obs = torch.tensor(obs, dtype=torch.float32, device=self.device)
         if len(obs.shape) == 2:
-            return np.expand_dims(obs, 0)
-        return obs/self.normalize_factor
-
+            obs = obs.unsqueeze(0)
+        elif len(obs.shape) == 3:
+            obs = obs.permute(2, 0, 1)
+        if self.resize_img:
+            obs = F.interpolate(obs.unsqueeze(0), size=self.resize_img[::-1], mode='bicubic', align_corners=False).squeeze(0)
+        if self.gray_scale and obs.shape[0] == 3:
+            obs = obs.mean(dim=0, keepdim=True)
+        obs = obs / self.normalize_factor
+        return obs
 
     @staticmethod
     def postprocess_action(action):
@@ -58,9 +63,10 @@ class Preprocessor:
 
 class AtariGameWrapper:
     def __init__(self, game, config):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.game = game
         self.episode_rewards = []
-        self.preprocessor = Preprocessor(config)
+        self.preprocessor = Preprocessor(config, self.device)
         self.env_memory = deque([], maxlen=int(config['random_envs']))
         self.default_start_prob = float(config['default_start_prob'])
         self.random_steps_range = tuple(config['random_steps_range'])
@@ -71,16 +77,16 @@ class AtariGameWrapper:
         self.stacked_frames = deque([], maxlen=self.stack_n_frames)
 
     def init_random_start(self):
-        obs, info = self.game.reset(seed=np.random.randint(0, 10000))
+        obs, info = self.game.reset(seed=random.randint(0, 10000))
         for _ in range(random.randint(*self.random_steps_range)):
             action = self.game.action_space.sample()
             obs, reward, done, trunc, info = self.game.step(action)
             if done:
-                obs, info = self.game.reset(seed=np.random.randint(0, 10000))
+                obs, info = self.game.reset(seed=random.randint(0, 10000))
         return obs, info
 
     def get_score(self):
-        return np.sum(self.episode_rewards)
+        return sum(self.episode_rewards)
 
     def step(self, action):
         obs, reward, done, trunc, info = self.game.step(action)
@@ -88,24 +94,24 @@ class AtariGameWrapper:
         if self.lives > info.get('lives', 0):
             reward -= self.losing_live_penalty
             self.lives = info.get('lives', 0)
-        obs = self.preprocessor.preprocess_state(obs) # obs[5:13, 65:85] skiing flags left
+        obs = self.preprocessor.preprocess_state(obs)
         if self.stack_n_frames > 0:
             self.stacked_frames.append(obs)
-            obs = np.vstack(self.stacked_frames)
+            obs = torch.cat(list(self.stacked_frames), dim=0)
         return obs, reward, done, trunc, info
 
     def init_rand_pos(self):
         low = self.game.observation_space.low
         high = self.game.observation_space.high
-        random_start_state = np.random.uniform(low, high)
-        state, info = self.game.reset(seed=np.random.randint(0, 10000))
-        self.game.unwrapped.state = np.array(random_start_state, dtype=state.dtype)
+        random_start_state = torch.tensor(np.random.uniform(low, high), dtype=torch.float32, device=self.device)
+        state, info = self.game.reset(seed=random.randint(0, 10000))
+        self.game.unwrapped.state = random_start_state.cpu().numpy().astype(state.dtype)
         obs = self.game.unwrapped.state
-        self.preprocessor.preprocess_state(obs)
+        obs = self.preprocessor.preprocess_state(obs)
         return obs, info
 
     def reset(self, options={}):
-        np.random.seed(np.random.randint(0, 10000))
+        random.seed(random.randint(0, 10000))
         self.episode_rewards = []
         rand_start = False
         validation = options.get('validation', False)
@@ -117,11 +123,11 @@ class AtariGameWrapper:
             obs, info = self.init_random_start()
             rand_start = True
         else:
-            obs, info = self.game.reset(seed=np.random.randint(0, 10000))
+            obs, info = self.game.reset(seed=random.randint(0, 10000))
         obs = self.preprocessor.preprocess_state(obs)
         if self.stack_n_frames > 0:
-            self.stacked_frames = deque([obs]*self.stack_n_frames, maxlen=self.stack_n_frames)
-            obs = np.vstack(self.stacked_frames)
+            self.stacked_frames = deque([obs] * self.stack_n_frames, maxlen=self.stack_n_frames)
+            obs = torch.cat(list(self.stacked_frames), dim=0)
         self.lives = info.get('lives', 0)
         if not rand_start:
             for i in range(self.initial_frame_skip):

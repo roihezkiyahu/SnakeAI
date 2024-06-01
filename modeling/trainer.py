@@ -94,6 +94,7 @@ class Debugger:
 
 class Trainer:
     def __init__(self, config_path, model, clone_model):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if isinstance(config_path, str):
             with open(config_path, 'r') as file:
                 config = yaml.safe_load(file)['trainer']
@@ -127,8 +128,7 @@ class Trainer:
         if isinstance(self.game_wrapper, type(None)):
             self.game_wrapper = AtariGameWrapper(self.game)
         if isinstance(self.visualizer, type(None)):
-            self.visualizer = AtariGameViz(self.game)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.visualizer = AtariGameViz(self.game, self.device)
         self.model = model.to(self.device)
         self.target_net = clone_model.to(self.device)
         if config['folder']:
@@ -273,7 +273,8 @@ class Trainer:
         if self.check_failed_init(steps, done, episode, action, probs):
             return done, True
         next_state_tensor = self.get_next_state_tensor(terminated, obs)
-        self.memory.push(torch.tensor(state, device=self.device).to(torch.float32), torch.tensor([action], device=self.device),
+        self.memory.push(torch.tensor(state, device=self.device).to(torch.float32), torch.tensor([action],
+                                                                                                 device=self.device),
                          next_state_tensor, torch.tensor([reward], device=self.device))
         if (steps + 1) % self.update_every_n_steps == 0:
             self.optimize_model()

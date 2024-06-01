@@ -210,13 +210,13 @@ if __name__ == "__main__":
 
 
     # SpaceInvaders
-    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders.yaml")
-    dueling = True
-    train_agent(config_path, conv_layers_params, fc_layers, dueling)
+    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders.yaml")
+    # dueling = True
+    # train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
-    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_per06.yaml")
-    dueling = True
-    train_agent(config_path, conv_layers_params, fc_layers, dueling)
+    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_per06.yaml")
+    # dueling = True
+    # train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
     config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma999.yaml")
     dueling = True
