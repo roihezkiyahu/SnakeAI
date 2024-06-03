@@ -29,12 +29,20 @@ def load_config(config_path):
 
 
 def initialize_game(config, continuous):
+    frameskip = config['atari_game_wrapper']['frame_skip']
     if continuous is not None:
-        game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'],
-                        continuous=continuous, frameskip=config['atari_game_wrapper']['frame_skip'])
+        if frameskip is not None:
+            game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'],
+                            continuous=continuous, frameskip=config['atari_game_wrapper']['frame_skip'])
+        else:
+            game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'],
+                            continuous=continuous)
     else:
-        game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'],
-                        frameskip=config['atari_game_wrapper']['frame_skip'])
+        if frameskip is not None:
+            game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'],
+                            frameskip=config['atari_game_wrapper']['frame_skip'])
+        else:
+            game = gym.make(config['trainer']['game'], render_mode=config['trainer']['render_mode'])
     return game
 
 
@@ -208,17 +216,16 @@ if __name__ == "__main__":
         {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}]
     fc_layers = [256, 128]
 
-    # CarRacing
-    config_path = os.path.join("modeling", "configs", "trainer_config_CarRacing.yaml", continuous=False)
+    # SpaceInvaders
+    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders.yaml")
     dueling = True
     train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
-    # SpaceInvaders
-    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders.yaml")
+    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_per06.yaml")
     # dueling = True
     # train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
-    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_per06.yaml")
+    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma95.yaml")
     dueling = True
     train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
@@ -231,6 +238,11 @@ if __name__ == "__main__":
     dueling = True
     train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
+    # CarRacing
+    config_path = os.path.join("modeling", "configs", "trainer_config_CarRacing.yaml")
+    dueling = True
+    train_agent(config_path, conv_layers_params, fc_layers, dueling, continuous=False)
+
     # BreakoutNoFrameskip
     config_path = os.path.join("modeling", "configs", "trainer_config_Breakout.yaml")
     dueling = True
@@ -240,3 +252,5 @@ if __name__ == "__main__":
     # config_path = os.path.join("modeling", "configs", "trainer_config_Skiing.yaml")
     # dueling = True
     # train_agent(config_path, conv_layers_params, fc_layers, dueling)
+
+

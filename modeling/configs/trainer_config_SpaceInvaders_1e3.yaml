@@ -1,12 +1,12 @@
 trainer:
   game: "SpaceInvadersDeterministic-v4"
   render_mode: "rgb_array"
-  episodes: 25000
-  learning_rate: 1e-4
-  gamma: 0.95
+  episodes: 50000
+  learning_rate: 1e-3
+  gamma: 0.99
   n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/SpaceInvadersDeterministic_1e4_llp100_dsp01_gamma095"
+  folder: "logging/SpaceInvadersDeterministic_1e3_llp100_dsp01"
   save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1

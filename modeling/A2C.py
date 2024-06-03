@@ -145,7 +145,9 @@ class A2CAgent(Trainer):
             i = 0
             while i < batch_size:
                 action, policy, value, obs_torch = self.get_action_and_value(obs)
-                actions[i], values[i], observations[i] = action, value, obs
+                actions[i]  = action
+                values[i] = value
+                observations[i] = obs
                 obs, reward, done = self.step_game(action)
                 rewards[i], dones[i], total_reward = reward, done, total_reward + reward
                 i, steps, episode_count, total_reward, obs = self.handle_episode_end(i, done, steps, total_reward,
@@ -157,7 +159,7 @@ class A2CAgent(Trainer):
     def initialize_batch_variables(self, batch_size):
         actions, dones = np.zeros((batch_size,), dtype=np.int32), np.zeros((batch_size,), dtype=bool)
         rewards, values = np.zeros((2, batch_size), dtype=np.float32)
-        observations = np.zeros((batch_size,) + self.input_shape, dtype=np.float32)
+        observations = torch.zeros((batch_size,) + self.input_shape, dtype=torch.float32).to(self.device)
         return actions, dones, rewards, values, observations
 
     def get_action_and_value(self, obs):

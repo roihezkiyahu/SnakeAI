@@ -48,4 +48,4 @@ atari_game_wrapper:
   losing_live_penalty: 100
   initial_frame_skip: 30
   normalize_factor: 255
-  frame_skip: 1
+  frame_skip: 3
