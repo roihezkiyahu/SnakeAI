@@ -1,12 +1,12 @@
 trainer:
-  game: "SpaceInvadersNoFrameskip-v4"
+  game: "SpaceInvadersDeterministic-v4"
   render_mode: "rgb_array"
   episodes: 10000
   learning_rate: 1e-4
   gamma: 0.999
-  n_memory_episodes: 100
+  n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/SpaceInvadersNoFrameskip_1e4_Gamma999_llp50"
+  folder: "logging/SpaceInvadersDeterministic_1e4_Gamma999_llp50"
   save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1
@@ -26,7 +26,7 @@ trainer:
   visualizer: null
   gif_fps: 20
   update_every_n_steps: 10
-  save_diagnostics: 200
+  save_diagnostics: 500
   clip_grad: 0
   save_model_every_n: 5
   reset_options:

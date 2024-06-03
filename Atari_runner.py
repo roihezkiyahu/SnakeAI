@@ -208,19 +208,23 @@ if __name__ == "__main__":
         {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}]
     fc_layers = [256, 128]
 
+    # CarRacing
+    config_path = os.path.join("modeling", "configs", "trainer_config_CarRacing.yaml", continuous=False)
+    dueling = True
+    train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
     # SpaceInvaders
     # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders.yaml")
     # dueling = True
     # train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
-    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_per06.yaml")
-    # dueling = True
-    # train_agent(config_path, conv_layers_params, fc_layers, dueling)
-
-    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma999.yaml")
+    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_per06.yaml")
     dueling = True
     train_agent(config_path, conv_layers_params, fc_layers, dueling)
+
+    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma999.yaml")
+    # dueling = True
+    # train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
     # MsPacmanNoFrameskip
     config_path = os.path.join("modeling", "configs", "trainer_config_MsPacman.yaml")
@@ -232,20 +236,7 @@ if __name__ == "__main__":
     dueling = True
     train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
-    # SkiingDeterministic
-    config_path = os.path.join("modeling", "configs", "trainer_config_Skiing.yaml")
-    dueling = True
-    train_agent(config_path, conv_layers_params, fc_layers, dueling)
-
-
-    # CarRacing
-    config_path = os.path.join("modeling", "configs", "trainer_config_CarRacing.yaml", continuous=False)
-    dueling = True
-    # conv_layers_params = [
-    #     {'in_channels': 4, 'out_channels': 4, 'kernel_size': 3, 'stride': 1, 'padding': 1, 'groups':4},
-    #     {'in_channels': 4, 'out_channels': 8, 'kernel_size': 1, 'stride': 1},
-    #     {'in_channels': 8, 'out_channels': 16, 'kernel_size': 3, 'stride': 4, 'padding': 1},
-    #     {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 4, 'padding': 1},
-    #     {'in_channels': 32, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1}]
-    # fc_layers = [128]
-    train_agent(config_path, conv_layers_params, fc_layers, dueling)
+    # # SkiingDeterministic
+    # config_path = os.path.join("modeling", "configs", "trainer_config_Skiing.yaml")
+    # dueling = True
+    # train_agent(config_path, conv_layers_params, fc_layers, dueling)

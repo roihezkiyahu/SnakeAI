@@ -72,8 +72,12 @@ class Debugger:
         n_scores = len(scores)
         window = min(window, n_scores)
         running_avg = self.moving_average(scores, window)
+        running_avg_3 = self.moving_average(scores, min(window*3, n_scores))
+        running_avg_5 = self.moving_average(scores, min(window*5, n_scores))
         plt.plot(range(1, n_scores + 1), scores, label='Score')
-        plt.plot(range(window, n_scores + 1), running_avg, label='Running Average', linestyle='dashed')
+        plt.plot(range(window, n_scores + 1), running_avg, label=f'Running Average {window}', linestyle='dashed')
+        plt.plot(range(window*3, n_scores + 1), running_avg_3, label=f'Running Average {window*3}', linestyle='dashed')
+        plt.plot(range(window*5, n_scores + 1), running_avg_5, label=f'Running Average {window*5}', linestyle='dashed')
         plt.title('Rewards History')
         plt.xlabel('Game Number')
         plt.ylabel('Score')
@@ -165,7 +169,6 @@ class Trainer:
             task()
 
     def choose_action(self, state, episode, validation=False):
-        # Ensure state is a tensor and move it to the correct device
         if not isinstance(state, torch.Tensor):
             state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
         else:
@@ -183,8 +186,6 @@ class Trainer:
                 with torch.no_grad():
                     probs = self.model(state_tensor)
                     return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
-
-
 
     def get_batch(self):
         transitions, indices, weights = self.memory.sample(self.batch_size)
@@ -232,14 +233,13 @@ class Trainer:
         self.optimizer.zero_grad()
         loss.backward()
         self.debugger.track_gradients()
-        # self.apply_grad_clip()
+        self.apply_grad_clip()
         self.optimizer.step()
         with torch.no_grad():
             td_errors = (expected_state_action_values.unsqueeze(1) - state_action_values).abs().squeeze().cpu().numpy()
             self.memory.update_priorities(indices, td_errors)
 
     def check_failed_init(self, steps, done, episode, action, probs, debug=False):
-        # game_action = self.game_wrapper.preprocessor.postprocess_action(action)
         game_action = action
         if steps <= 1 and done:
             if debug:
@@ -281,11 +281,11 @@ class Trainer:
         done = terminated or truncated
         if self.check_failed_init(steps, done, episode, action, probs):
             return done, True
-        next_state_tensor = self.get_next_state_tensor(terminated, obs, self.device)  # Pass device
-        self.memory.push(torch.tensor(state, device=self.device).to(torch.float32),  # Ensure state is on device
-                         torch.tensor([action], device=self.device),  # Ensure action is on device
+        next_state_tensor = self.get_next_state_tensor(terminated, obs, self.device)
+        self.memory.push(torch.tensor(state, device=self.device).to(torch.float32),
+                         torch.tensor([action], device=self.device),
                          next_state_tensor,
-                         torch.tensor([reward], device=self.device))  # Ensure reward is on device
+                         torch.tensor([reward], device=self.device))
         if (steps + 1) % self.update_every_n_steps == 0:
             self.optimize_model()
             self.update_target_net()

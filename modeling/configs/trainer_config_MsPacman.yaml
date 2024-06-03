@@ -1,12 +1,12 @@
 trainer:
   game: "MsPacmanNoFrameskip-v4"
   render_mode: "rgb_array"
-  episodes: 10000
-  learning_rate: 5e-5
+  episodes: 25000
+  learning_rate: 1e-4
   gamma: 0.95
-  n_memory_episodes: 100
+  n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/MsPacmanNoFrameskip_5e4_gamma95_llp100"
+  folder: "logging/MsPacmanNoFrameskip_1e4_gamma95_llp200_dsp01"
   save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1
@@ -26,7 +26,7 @@ trainer:
   visualizer: null
   gif_fps: 20
   update_every_n_steps: 10
-  save_diagnostics: 200
+  save_diagnostics: 500
   clip_grad: 0
   save_model_every_n: 5
   reset_options:
@@ -42,9 +42,10 @@ atari_game_wrapper:
   resize_img: [80, 105]
   gray_scale: true
   random_envs: 0
-  default_start_prob: 0.5
+  default_start_prob: 0.1
   random_steps_range: [50, 300]
   stack_n_frames: 4
-  losing_live_penalty: 100
+  losing_live_penalty: 200
+  initial_frame_skip: 15
   normalize_factor: 255
   frame_skip: 4

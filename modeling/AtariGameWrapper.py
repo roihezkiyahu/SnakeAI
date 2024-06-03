@@ -77,12 +77,12 @@ class AtariGameWrapper:
         self.stacked_frames = deque([], maxlen=self.stack_n_frames)
 
     def init_random_start(self):
-        obs, info = self.game.reset(seed=random.randint(0, 10000))
+        obs, info = self.game.reset()
         for _ in range(random.randint(*self.random_steps_range)):
             action = self.game.action_space.sample()
             obs, reward, done, trunc, info = self.game.step(action)
             if done:
-                obs, info = self.game.reset(seed=random.randint(0, 10000))
+                obs, info = self.game.reset()
         return obs, info
 
     def get_score(self):
@@ -104,18 +104,17 @@ class AtariGameWrapper:
         low = self.game.observation_space.low
         high = self.game.observation_space.high
         random_start_state = torch.tensor(np.random.uniform(low, high), dtype=torch.float32, device=self.device)
-        state, info = self.game.reset(seed=random.randint(0, 10000))
+        state, info = self.game.reset()
         self.game.unwrapped.state = random_start_state.cpu().numpy().astype(state.dtype)
         obs = self.game.unwrapped.state
         obs = self.preprocessor.preprocess_state(obs)
         return obs, info
 
     def reset(self, options={}):
-        random.seed(random.randint(0, 10000))
         self.episode_rewards = []
         rand_start = False
         validation = options.get('validation', False)
-        if options.get('randomize_position', False):
+        if options.get('randomize_position', False) and not validation:
             obs, info = self.init_rand_pos()
             self.lives = info.get('lives')
             return obs, info
@@ -123,7 +122,7 @@ class AtariGameWrapper:
             obs, info = self.init_random_start()
             rand_start = True
         else:
-            obs, info = self.game.reset(seed=random.randint(0, 10000))
+            obs, info = self.game.reset()
         obs = self.preprocessor.preprocess_state(obs)
         if self.stack_n_frames > 0:
             self.stacked_frames = deque([obs] * self.stack_n_frames, maxlen=self.stack_n_frames)
