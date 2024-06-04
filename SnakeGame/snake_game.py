@@ -1,6 +1,6 @@
 import pygame
 import random
-
+from types import SimpleNamespace
 
 class SnakeGame:
     """A simple snake game using Pygame."""
@@ -15,6 +15,7 @@ class SnakeGame:
             block_size (int): The size of each block in pixels.
             default_start_prob (float): Probability of starting with the default game state.
         """
+        self.action_space = SimpleNamespace(**{"n": 4})
         self.width = width
         self.height = height
         self.block_size = block_size
@@ -162,6 +163,9 @@ class SnakeGame:
             'food': self.food,
             'score': self.score
         }
+
+    def close(self):
+        pass
 
 
 def draw_game(screen, game):

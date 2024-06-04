@@ -6,9 +6,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 class Preprocessor:
-    def __init__(self, game, numeric_value=True, for_cnn=True, food_direction=True,
-                 add_death_indicators=True, direction=True, clear_path_pixels=False,
-                 length_aware=True):
+    def __init__(self, game, config):
         """
         Initialize the Preprocessor class.
 
@@ -23,13 +21,13 @@ class Preprocessor:
             length_aware (bool): Whether to include snake length.
         """
         self.game = game
-        self.numeric_value = numeric_value
-        self.for_cnn = for_cnn
-        self.food_direction = food_direction
-        self.add_death_indicators = add_death_indicators
-        self.direction = direction
-        self.clear_path_pixels = clear_path_pixels
-        self.length_aware = length_aware
+        self.numeric_value = config['numeric_value']
+        self.for_cnn = config['for_cnn']
+        self.food_direction = config['food_direction']
+        self.add_death_indicators = config['add_death_indicators']
+        self.direction = config['direction']
+        self.clear_path_pixels = config['clear_path_pixels']
+        self.length_aware = config['length_aware']
 
     def initialize_state(self):
         """Initialize the state grid.
@@ -208,12 +206,7 @@ class Preprocessor:
 
 
 class SnakeGameWrap:
-    def __init__(self, game, numeric_value=True, for_cnn=True, food_direction=True,
-                 add_death_indicators=True, direction=True, clear_path_pixels=False,
-                 length_aware=True, reward_params={'death': -1.5, 'move': 0, 'food': 1.0,
-                                                   'food_length_dependent': 0, 'death_length_dependent': 0},
-                 failed_init_val=-1.5, close_food_episodes_skip=100, close_food=2500, max_init_len=5,
-                 increasing_start_len=True, max_not_eaten=100):
+    def __init__(self, game, config):
         """
         Initialize the SnakeGameWrap class.
 
@@ -241,17 +234,15 @@ class SnakeGameWrap:
         self.not_eaten_steps = 0
         self.val_mode = False
         self.last_start_prob = self.game.default_start_prob
-        self.close_food = close_food
-        self.close_food_episodes_skip = close_food_episodes_skip
-        self.max_init_len = max_init_len
-        self.failed_init_val = failed_init_val
+        self.close_food = config['close_food']
+        self.close_food_episodes_skip = config['close_food_episodes_skip']
+        self.max_init_len = config['max_init_len']
+        self.failed_init_val = config['failed_init_val']
         self.last_action = self.game.snake_direction
-        self.reward_params = reward_params
-        self.preprocessor = Preprocessor(game, numeric_value, for_cnn, food_direction,
-                                         add_death_indicators, direction, clear_path_pixels,
-                                         length_aware)
-        self.increasing_start_len = increasing_start_len
-        self.max_not_eaten = max_not_eaten
+        self.reward_params = config['reward_params']
+        self.preprocessor = Preprocessor(game, config)
+        self.increasing_start_len = config['increasing_start_len']
+        self.max_not_eaten = config['max_not_eaten']
 
     def get_score(self):
         return self.game.score
@@ -349,7 +340,7 @@ class SnakeGameWrap:
         self.steps = 0
         self.last_score = 0
         self.not_eaten_steps = 0
-        if options["validation"]:
+        if options.get('validation', False):
             self.validation_rest()
         else:
             self.train_reset()

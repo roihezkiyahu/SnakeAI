@@ -1,14 +1,14 @@
 trainer:
-  game: "SpaceInvadersDeterministic-v4"
+  game: "SpaceInvadersNoFrameskip-v4"
   render_mode: "rgb_array"
   episodes: 50000
   learning_rate: 5e-5
   gamma: 0.99
   n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/SpaceInvadersDeterministic_5e5_per06_llp100_sdp01"
+  folder: "logging/SpaceInvadersNoFrameskip_5e5_per06_llp100_sdp01_bs64"
   save_gif_every_x_epochs: 250
-  batch_size: 128
+  batch_size: 64
   EPS_START: 1
   EPS_END: 0.1
   EPS_DECAY: 250
@@ -26,6 +26,7 @@ trainer:
   visualizer: null
   gif_fps: 20
   update_every_n_steps: 10
+  update_target_every_n_steps: 50
   save_diagnostics: 500
   clip_grad: 0
   save_model_every_n: 5

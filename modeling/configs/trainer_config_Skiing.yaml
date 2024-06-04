@@ -26,6 +26,7 @@ trainer:
   visualizer: null
   gif_fps: 20
   update_every_n_steps: 10
+  update_target_every_n_steps: 50
   save_diagnostics: 500
   clip_grad: 0
   save_model_every_n: 5

@@ -1,13 +1,12 @@
 from modeling.models import CNNDQNAgent, DQN, ActorCritic
 from modeling.trainer import Trainer
 from modeling.AtariGameWrapper import AtariGameWrapper
-import copy
 import os
 import gym
-import gymnasium as gymnas
-import ale_py
 from modeling.A2C import A2CAgent
 import yaml
+from SnakeGame.snake_game import SnakeGame
+from modeling.SnakeWrapper import SnakeGameWrap
 
 
 def train_a2c(config, game, game_wrapper, conv_layers_params, fc_layers):
@@ -50,7 +49,7 @@ def get_game_wrapper(game, config, game_wrapper):
     if game_wrapper is None:
         game_wrapper = AtariGameWrapper(game, config['atari_game_wrapper'])
     else:
-        game_wrapper = game_wrapper(game, config['game_wrapper'])
+        game_wrapper = game_wrapper(game, config["trainer"]['game_wrapper'])
     return game_wrapper
 
 
@@ -75,9 +74,10 @@ def create_models(config, game_wrapper, conv_layers_params, fc_layers, dueling, 
 
 
 def train_agent(config_path, conv_layers_params, fc_layers, dueling, continuous=None, a2c=False,
-                game_wrapper=None, use_cnn=True):
+                game_wrapper=None, use_cnn=True, game=None):
     config = load_config(config_path)
-    game = initialize_game(config, continuous)
+    if game is None:
+        game = initialize_game(config, continuous)
     game_wrapper = get_game_wrapper(game, config, game_wrapper)
     config['trainer']['game_wrapper'] = game_wrapper
     if a2c:
@@ -209,6 +209,22 @@ if __name__ == "__main__":
     #
     # trainer.train()
 
+    # SnakeGame
+
+    # conv_layers_params = [
+    #     {'in_channels': 11, 'out_channels': 11, 'kernel_size': 3, 'stride': 1, 'padding': 1, 'groups': 11},
+    #     {'in_channels': 11, 'out_channels': 16, 'kernel_size': 1, 'stride': 1},
+    #     {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1},
+    #     {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1},
+    #     {'in_channels': 64, 'out_channels': 128, 'kernel_size': 3, 'stride': 2, 'padding': 1}
+    # ]
+    # fc_layers = [256]
+    #
+    # config_path = os.path.join("modeling", "configs", "trainer_config_snake.yaml")
+    # dueling = True
+    # train_agent(config_path, conv_layers_params, fc_layers, dueling, game=SnakeGame(10, 10, 10, default_start_prob=0.1),
+    #             game_wrapper=SnakeGameWrap)
+
     conv_layers_params = [
         {'in_channels': 4, 'out_channels': 8, 'kernel_size': 7, 'stride': 4, 'padding': 1},
         {'in_channels': 8, 'out_channels': 16, 'kernel_size': 7, 'stride': 4, 'padding': 1},
@@ -225,7 +241,7 @@ if __name__ == "__main__":
     # dueling = True
     # train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
-    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma95.yaml")
+    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma9.yaml")
     dueling = True
     train_agent(config_path, conv_layers_params, fc_layers, dueling)
 

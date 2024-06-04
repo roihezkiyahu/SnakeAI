@@ -6,9 +6,9 @@ trainer:
   gamma: 0.95
   n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/MsPacmanNoFrameskip_1e4_gamma95_llp200_dsp01"
+  folder: "logging/MsPacmanNoFrameskip_1e4_gamma95_llp200_dsp01_bs64"
   save_gif_every_x_epochs: 250
-  batch_size: 128
+  batch_size: 64
   EPS_START: 1
   EPS_END: 0.05
   EPS_DECAY: 250
@@ -26,6 +26,7 @@ trainer:
   visualizer: null
   gif_fps: 20
   update_every_n_steps: 10
+  update_target_every_n_steps: 50
   save_diagnostics: 500
   clip_grad: 0
   save_model_every_n: 5
@@ -48,4 +49,4 @@ atari_game_wrapper:
   losing_live_penalty: 200
   initial_frame_skip: 15
   normalize_factor: 255
-  frame_skip: 4
+  frame_skip: 3

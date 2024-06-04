@@ -30,6 +30,7 @@ class Debugger:
         self.gradient_norms = []
         self.score_history = []
         self.value_outputs = []
+        self.epsilons = []
 
     def track_loss(self, loss):
         self.loss_history.append(loss.item())
@@ -43,6 +44,9 @@ class Debugger:
 
     def track_scores(self, score):
         self.score_history.extend(score)
+
+    def track_epsilon(self, epsilon):
+        self.score_history.append(epsilon)
 
     @staticmethod
     def moving_average(a, window=3):
@@ -66,7 +70,15 @@ class Debugger:
         plt.ylabel('Gradient Norm')
         plt.legend()
 
-    def plot_scores(self, window, subplot=212):
+    def plot_epsilon(self, episodes, subplot=223):
+        plt.subplot(subplot)
+        plt.plot(episodes, self.epsilons, label='Epsilon')
+        plt.title('Epsilon over Time')
+        plt.xlabel('Optimization step')
+        plt.ylabel('Epsilon')
+        plt.legend()
+
+    def plot_scores(self, window, subplot=212): #212
         plt.subplot(subplot)
         scores = np.array(self.score_history)
         n_scores = len(scores)
@@ -88,6 +100,7 @@ class Debugger:
         plt.figure(figsize=(15, 10))
         self.plot_loss(episodes)
         self.plot_grads(episodes)
+        # self.plot_epsilon(episodes)
         self.plot_scores(window)
         plt.tight_layout()
         filename = f"{self.agent.prefix_name}_{epoch}_diagnostics.png"
@@ -125,6 +138,7 @@ class Trainer:
         self.fps = int(config['gif_fps'])
         self.reset_options = config['reset_options']
         self.update_every_n_steps = int(config['update_every_n_steps'])
+        self.update_target_every_n_steps = int(config['update_target_every_n_steps'])
         self.save_diagnostics = int(config['save_diagnostics'])
         self.clip_grad = float(config['clip_grad'])
         self.save_model_every_n = int(config['save_model_every_n'])
@@ -133,6 +147,8 @@ class Trainer:
             self.game_wrapper = AtariGameWrapper(self.game)
         if isinstance(self.visualizer, type(None)):
             self.visualizer = AtariGameViz(self.game, self.device)
+        elif self.visualizer == "snake":
+            self.visualizer = GameVisualizer_cv2(self.game)
         self.model = model.to(self.device)
         self.target_net = clone_model.to(self.device)
         if config['folder']:
@@ -160,6 +176,7 @@ class Trainer:
         self.queue_processor_thread = threading.Thread(target=self.process_queue)
         self.queue_processor_thread.daemon = True
         self.queue_processor_thread.start()
+        self.total_steps = 0
 
     def process_queue(self):
         while True:
@@ -180,7 +197,8 @@ class Trainer:
                 return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
         else:
             epsilon = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1. * episode / self.EPS_DECAY)
-            if torch.rand(1, device=self.device).item() < epsilon or len(self.memory) < self.warmup_steps:
+            self.debugger.track_epsilon(epsilon)
+            if torch.rand(1, device=self.device).item() < epsilon or self.total_steps < self.warmup_steps:
                 return torch.randint(0, self.n_actions, (1,), device=self.device).item(), [0] * self.n_actions
             else:
                 with torch.no_grad():
@@ -201,7 +219,7 @@ class Trainer:
 
     def get_state_target_value(self, state_batch, action_batch, non_final_next_states, non_final_mask):
         state_action_values = self.model(state_batch).gather(1, action_batch)
-        target_net_pred = self.target_net(non_final_next_states)
+        target_net_pred = self.target_net(non_final_next_states).detach()
         if self.use_ddqn:
             best_actions = self.model(non_final_next_states).max(1)[1].unsqueeze(1)
             target_action_values = torch.zeros(self.batch_size, device=self.device)
@@ -286,10 +304,12 @@ class Trainer:
                          torch.tensor([action], device=self.device),
                          next_state_tensor,
                          torch.tensor([reward], device=self.device))
-        if (steps + 1) % self.update_every_n_steps == 0:
+        if (self.total_steps + 1) % self.update_every_n_steps == 0:
             self.optimize_model()
+        if (self.total_steps + 1) % self.update_target_every_n_steps == 0:
             self.update_target_net()
         self.save_gif_if_needed(episode, action, probs)
+        self.total_steps += 1
         return done, False
 
     def run_episode(self, episode):
