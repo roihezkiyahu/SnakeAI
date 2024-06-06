@@ -152,8 +152,8 @@ class Trainer:
             self.visualizer = AtariGameViz(self.game, self.device)
         elif self.visualizer == "snake":
             self.visualizer = GameVisualizer_cv2(self.game)
-        self.model = model.to(self.device, non_blocking=True)
-        self.target_net = clone_model.to(self.device, non_blocking=True)
+        self.model = model.to(self.device)
+        self.target_net = clone_model.to(self.device)
         if config['folder']:
             os.makedirs(config['folder'], exist_ok=True)
             self.prefix_name = os.path.join(config['folder'], config['prefix_name'])
@@ -180,9 +180,9 @@ class Trainer:
 
     def choose_action(self, state, epsilon, validation=False):
         if not isinstance(state, torch.Tensor):
-            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device, non_blocking=True)
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
         else:
-            state_tensor = state.unsqueeze(0).to(self.device, non_blocking=True)
+            state_tensor = state.unsqueeze(0).to(self.device)
 
         if validation:
             with torch.no_grad():
@@ -200,12 +200,12 @@ class Trainer:
         transitions, indices, weights = self.memory.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
         self.logger.start_timer("state_action_reward_batch")
-        state_batch = torch.stack(batch.state).to(self.device, non_blocking=True)
-        action_batch = torch.stack(batch.action).to(self.device, non_blocking=True)
-        reward_batch = torch.cat(batch.reward).to(self.device, non_blocking=True)
+        state_batch = torch.stack(batch.state).to(self.device)
+        action_batch = torch.stack(batch.action).to(self.device)
+        reward_batch = torch.cat(batch.reward).to(self.device)
         self.logger.stop_timer("state_action_reward_batch")
         self.logger.start_timer("next_state_batch_final_mask_weights")
-        next_state_batch = torch.cat([s for s in batch.next_state if s is not None]).to(self.device, non_blocking=True)
+        next_state_batch = torch.cat([s for s in batch.next_state if s is not None]).to(self.device)
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool,
                                       device=self.device)
         weights = torch.tensor(weights, dtype=torch.float32, device=self.device).unsqueeze(1)
