@@ -114,7 +114,6 @@ class Debugger:
 class Trainer:
     def __init__(self, config_path, model, clone_model):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        torch.set_default_device(self.device)
         if isinstance(config_path, str):
             with open(config_path, 'r') as file:
                 config = yaml.safe_load(file)['trainer']

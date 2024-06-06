@@ -52,11 +52,11 @@ class Preprocessor:
         elif len(obs.shape) == 3:
             obs = obs.permute(2, 0, 1)
             if self.resize_img:
-                obs = F.interpolate(obs.unsqueeze(0), size=self.resize_img[::-1],
-                                    mode='bicubic', align_corners=False).squeeze(0)
+                obs = F.interpolate(obs.unsqueeze(0), size=self.resize_img[::-1], mode='bicubic',
+                                    align_corners=False).squeeze(0)
             if self.gray_scale and obs.shape[0] == 3:
                 obs = obs.mean(dim=0, keepdim=True)
-        obs = obs / self.normalize_factor
+        obs.div_(self.normalize_factor)
         return obs
 
     @staticmethod
@@ -135,7 +135,7 @@ class AtariGameWrapper:
         validation = options.get('validation', False)
         if options.get('randomize_position', False) and not validation:
             obs, info = self.init_rand_pos(seed)
-            self.lives = info.get('lives')
+            self.lives = info.get('lives', 0)
             return obs, info
         if random.random() > self.default_start_prob and not validation:
             obs, info = self.init_random_start(seed)
