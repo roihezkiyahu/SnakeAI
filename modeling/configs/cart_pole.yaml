@@ -8,7 +8,7 @@ trainer:
   prefix_name: ""
   folder: "logging/CartPole_dsp01"
   save_gif_every_x_epochs: 250
-  batch_size: 256
+  batch_size: 128
   EPS_START: 1
   EPS_END: 0.05
   EPS_DECAY: 250
@@ -32,7 +32,7 @@ trainer:
   save_model_every_n: 5
   reset_options:
     randomize_position: false
-  warmup_steps: 5000
+  warmup_steps: 1000
   value_network_lr: 1e-4 # for A2C only
   actor_network_lr: 1e-4 # for A2C only
   entropy_coefficient: 0.01 # for A2C only

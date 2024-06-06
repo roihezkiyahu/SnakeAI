@@ -46,13 +46,14 @@ class Preprocessor:
         self.device = device
 
     def preprocess_state(self, obs):
-        obs = torch.tensor(obs, dtype=torch.float32, device=self.device)
+        obs = torch.tensor(obs, dtype=torch.float32)
         if len(obs.shape) == 2:
             obs = obs.unsqueeze(0)
         elif len(obs.shape) == 3:
             obs = obs.permute(2, 0, 1)
             if self.resize_img:
-                obs = F.interpolate(obs.unsqueeze(0), size=self.resize_img[::-1], mode='bicubic', align_corners=False).squeeze(0)
+                obs = F.interpolate(obs.unsqueeze(0), size=self.resize_img[::-1],
+                                    mode='bicubic', align_corners=False).squeeze(0)
             if self.gray_scale and obs.shape[0] == 3:
                 obs = obs.mean(dim=0, keepdim=True)
         obs = obs / self.normalize_factor

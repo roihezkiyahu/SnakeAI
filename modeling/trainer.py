@@ -189,8 +189,8 @@ class Trainer:
                 probs = self.model(state_tensor)
                 return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
         else:
-            if torch.rand(1, device=self.device).item() < epsilon or self.total_steps < self.warmup_steps:
-                return torch.randint(0, self.n_actions, (1,), device=self.device).item(), [0] * self.n_actions
+            if torch.rand(1).item() < epsilon or self.total_steps < self.warmup_steps:
+                return torch.randint(0, self.n_actions, (1,)).item(), [0] * self.n_actions
             else:
                 with torch.no_grad():
                     probs = self.model(state_tensor)
@@ -205,9 +205,12 @@ class Trainer:
         reward_batch = torch.cat(batch.reward).to(self.device)
         self.logger.stop_timer("state_action_reward_batch")
         self.logger.start_timer("next_state_batch_final_mask_weights")
-        next_state_batch = torch.cat([s for s in batch.next_state if s is not None]).to(self.device)
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool,
-                                      device=self.device)
+        non_final_next_states = [s.to(self.device) for s in batch.next_state if s is not None]
+        if non_final_next_states:
+            next_state_batch = torch.cat(non_final_next_states)
+        else:
+            next_state_batch = torch.empty((0,) + state_batch.shape[1:], device=self.device)
+        non_final_mask = torch.tensor([s is not None for s in batch.next_state], dtype=torch.bool, device=self.device)
         weights = torch.tensor(weights, dtype=torch.float32, device=self.device).unsqueeze(1)
         self.logger.stop_timer("next_state_batch_final_mask_weights")
         return state_batch, action_batch, reward_batch, next_state_batch, non_final_mask, weights, indices
@@ -216,9 +219,10 @@ class Trainer:
         batch = self.logger.time_and_log(self.get_batch, "get_batch")
         state_batch, action_batch, reward_batch, next_state_batch, non_final_mask, weights, indices = batch
         state_action_values = self.model(state_batch).gather(1, action_batch)
-        next_state_values = torch.zeros(self.batch_size, device=self.device)
-        next_state_values[non_final_mask] = self.target_net(next_state_batch).max(1)[0].detach()
-        expected_state_action_values = (next_state_values * self.gamma) + reward_batch
+        with torch.no_grad():
+            next_state_values = torch.zeros(self.batch_size, device=self.device)
+            next_state_values[non_final_mask] = self.target_net(next_state_batch).max(1)[0]
+        expected_state_action_values = reward_batch + (self.gamma * next_state_values)
         loss = (weights * F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1),
                                            reduction='none')).mean()
         self.debugger.track_loss(loss)
@@ -234,10 +238,10 @@ class Trainer:
         loss, expected_state_action_values, state_action_values, indices = self.logger.time_and_log(self.calc_loss,
                                                                                                     "calc_loss")
         self.optimizer.zero_grad()
-        self.logger.time_and_log(loss.backward, "loss_back")
+        loss.backward()
         self.debugger.track_gradients()
         self.apply_grad_clip()
-        self.logger.time_and_log(self.optimizer.step, "optimizer_step")
+        self.optimizer.step()
         with torch.no_grad():
             td_errors = (expected_state_action_values.unsqueeze(1) - state_action_values).abs().squeeze().cpu().numpy()
             self.memory.update_priorities(indices, td_errors)
@@ -256,20 +260,20 @@ class Trainer:
         return False
 
     @staticmethod
-    def get_next_state_tensor(terminated, obs, device):
+    def get_next_state_tensor(terminated, obs):
         if terminated:
             return None
         if not isinstance(obs, torch.Tensor):
-            return torch.FloatTensor(obs).unsqueeze(0).to(device)
-        return obs.unsqueeze(0).to(device)
+            return torch.FloatTensor(obs).unsqueeze(0)
+        return obs.unsqueeze(0)
 
     def update_target_net(self):
         if len(self.memory) < self.batch_size or len(self.memory) < self.warmup_steps:
             return
-        target_dict, policy_dict = self.target_net.state_dict(), self.model.state_dict()
-        for key in policy_dict:
-            target_dict[key] = policy_dict[key] * self.TAU + target_dict[key] * (1 - self.TAU)
-        self.target_net.load_state_dict(target_dict)
+
+        with torch.no_grad():
+            for target_param, policy_param in zip(self.target_net.parameters(), self.model.parameters()):
+                target_param.data.mul_(1 - self.TAU).add_(policy_param.data, alpha=self.TAU)
 
     def save_gif_if_needed(self, episode, action, probs):
         if (episode + 1) % self.save_gif_every_x_epochs == 0:
@@ -283,11 +287,11 @@ class Trainer:
         done = terminated or truncated
         if self.check_failed_init(steps, done, episode, action, probs):
             return done, True
-        next_state_tensor = self.get_next_state_tensor(terminated, obs, self.device)
-        self.memory.push(torch.tensor(state, device=self.device).to(torch.float32),
-                         torch.tensor([action], device=self.device),
+        next_state_tensor = self.get_next_state_tensor(terminated, obs)
+        self.memory.push(torch.tensor(state).to(torch.float32),
+                         torch.tensor([action]),
                          next_state_tensor,
-                         torch.tensor([reward], device=self.device))
+                         torch.tensor([reward]))
         if (self.total_steps + 1) % self.update_every_n_steps == 0:
             self.logger.time_and_log(self.optimize_model, "optimize_model")
         if (self.total_steps + 1) % self.update_target_every_n_steps == 0:
