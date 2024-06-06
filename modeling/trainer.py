@@ -114,6 +114,7 @@ class Debugger:
 class Trainer:
     def __init__(self, config_path, model, clone_model):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        torch.set_default_device(self.device)
         if isinstance(config_path, str):
             with open(config_path, 'r') as file:
                 config = yaml.safe_load(file)['trainer']
@@ -198,51 +199,18 @@ class Trainer:
     def get_batch(self):
         transitions, indices, weights = self.memory.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
-
-        state_batch, action_batch, reward_batch, next_state_batch, non_final_mask = self.preallocate_tensors(batch)
-        next_state_batch = self.fill_tensors(batch, state_batch, action_batch, reward_batch, next_state_batch,
-                                             non_final_mask)
-        weights = self.process_weights(weights)
-
+        self.logger.start_timer("state_action_reward_batch")
+        state_batch = torch.stack(batch.state).to(self.device, non_blocking=True)
+        action_batch = torch.stack(batch.action).to(self.device, non_blocking=True)
+        reward_batch = torch.cat(batch.reward).to(self.device, non_blocking=True)
+        self.logger.stop_timer("state_action_reward_batch")
+        self.logger.start_timer("next_state_batch_final_mask_weights")
+        next_state_batch = torch.cat([s for s in batch.next_state if s is not None]).to(self.device, non_blocking=True)
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool,
+                                      device=self.device)
+        weights = torch.tensor(weights, dtype=torch.float32, device=self.device).unsqueeze(1)
+        self.logger.stop_timer("next_state_batch_final_mask_weights")
         return state_batch, action_batch, reward_batch, next_state_batch, non_final_mask, weights, indices
-
-    def preallocate_tensors(self, batch):
-        state_batch = torch.empty((self.batch_size,) + batch.state[0].shape, device=self.device, dtype=torch.float32)
-        action_batch = torch.empty((self.batch_size, 1), device=self.device, dtype=torch.int64)
-        reward_batch = torch.empty((self.batch_size,), device=self.device, dtype=torch.float32)
-        non_final_mask = torch.empty((self.batch_size,), device=self.device, dtype=torch.bool)
-        next_state_batch = torch.empty((self.batch_size,) + batch.state[0].shape, device=self.device,
-                                       dtype=torch.float32)
-        return state_batch, action_batch, reward_batch, next_state_batch, non_final_mask
-
-    def fill_tensors(self, batch, state_batch, action_batch, reward_batch, next_state_batch, non_final_mask):
-        next_state_index = 0
-        for i in range(self.batch_size):
-            state_batch[i] = torch.tensor(batch.state[i]).to(self.device, non_blocking=True)
-            action_batch[i] = torch.tensor(batch.action[i]).to(self.device, non_blocking=True)
-            reward_batch[i] = torch.tensor(batch.reward[i]).to(self.device, non_blocking=True)
-            non_final_mask[i] = batch.next_state[i] is not None
-            if non_final_mask[i]:
-                next_state_batch[next_state_index] = torch.tensor(batch.next_state[i]).to(self.device,
-                                                                                          non_blocking=True)
-                next_state_index += 1
-        next_state_batch = next_state_batch[:next_state_index]
-        return next_state_batch
-
-    def process_weights(self, weights):
-        return torch.tensor(weights, dtype=torch.float32).to(self.device, non_blocking=True).unsqueeze(1)
-
-    def get_state_target_value(self, state_batch, action_batch, non_final_next_states, non_final_mask):
-        state_action_values = self.model(state_batch).gather(1, action_batch)
-        target_net_pred = self.target_net(non_final_next_states).detach()
-        if self.use_ddqn:
-            best_actions = self.model(non_final_next_states).max(1)[1].unsqueeze(1)
-            target_action_values = torch.zeros(self.batch_size, device=self.device)
-            target_action_values[non_final_mask] = target_net_pred.gather(1, best_actions).squeeze()
-        else:
-            target_action_values = torch.zeros(self.batch_size, device=self.device)
-            target_action_values[non_final_mask] = target_net_pred.max(1)[0]
-        return state_action_values, target_action_values
 
     def calc_loss(self):
         batch = self.logger.time_and_log(self.get_batch, "get_batch")
