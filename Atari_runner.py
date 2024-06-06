@@ -73,13 +73,15 @@ def create_models(config, game_wrapper, conv_layers_params, fc_layers, dueling, 
     return model, clone_model
 
 
-def train_agent(config_path, conv_layers_params, fc_layers, dueling, continuous=None, a2c=False,
-                game_wrapper=None, use_cnn=True, game=None):
+def train_agent(config_path, conv_layers_params, fc_layers, continuous=None, a2c=False,
+                game_wrapper=None, game=None):
     config = load_config(config_path)
     if game is None:
         game = initialize_game(config, continuous)
     game_wrapper = get_game_wrapper(game, config, game_wrapper)
     config['trainer']['game_wrapper'] = game_wrapper
+    dueling = config['trainer'].get("dueling", True)
+    use_cnn = config['trainer'].get("use_cnn", True)
     if a2c:
         train_a2c(config, game, game_wrapper, conv_layers_params, fc_layers)
         return
@@ -89,61 +91,10 @@ def train_agent(config_path, conv_layers_params, fc_layers, dueling, continuous=
     try:
         trainer.train()
     finally:
-        trainer.shutdown()
+        pass
 
 
 if __name__ == "__main__":
-    # # CarRacing A2C example
-    # game = gym.make("CarRacing-v2", render_mode="rgb_array", continuous=False)
-    # conv_layers_params = [
-    #     {'in_channels': 3, 'out_channels': 3, 'kernel_size': 5, 'stride': 1, 'padding': 1, 'groups':3},
-    #     {'in_channels': 3, 'out_channels': 8, 'kernel_size': 1, 'stride': 1},
-    #     {'in_channels': 8, 'out_channels': 16, 'kernel_size': 5, 'stride': 4, 'padding': 1},
-    #     {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 4, 'padding': 1},
-    #     {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}
-    # ]
-    # fc_layers = [256, 128]
-    # state, info = game.reset()
-    # input_shape, output_size = (state.shape[2], state.shape[0], state.shape[1]), game.action_space.n
-    #
-    # actor_model = ActorCritic(input_shape, output_size, conv_layers_params, fc_layers, mode='actor',
-    #                           use_instance_norm=True)
-    # critic_model = ActorCritic(input_shape, output_size, conv_layers_params, fc_layers, mode='critic',
-    #                            use_instance_norm=True)
-    #
-    # A2C = A2CAgent(game, critic_model, actor_model, folder=os.path.join("logging", "CarRacing_1e4_A2C"),
-    #                value_network_lr=1e-4, actor_network_lr=1e-4,
-    #                validate_every_n_episodes=1000, validate_episodes=250, save_gif_every_x_epochs=5,
-    #                max_episode_len=1000, input_shape=input_shape, n_memory_episodes=250
-    #                , reset_options={"validation": False}, gif_fps=10, n_actions=output_size)
-    #
-    # A2C.training_batch(10000, 128)
-
-    # SkiingDeterministic
-    # game = gym.make("SkiingDeterministic-v4", render_mode="rgb_array")
-    # conv_layers_params = [
-    #     {'in_channels': 3, 'out_channels': 3, 'kernel_size': 5, 'stride': 1, 'padding': 1, 'groups':3},
-    #     {'in_channels': 3, 'out_channels': 8, 'kernel_size': 1, 'stride': 1},
-    #     {'in_channels': 8, 'out_channels': 16, 'kernel_size': 5, 'stride': 4, 'padding': 1},
-    #     {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 4, 'padding': 1},
-    #     {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}
-    # ]
-    # fc_layers = [256, 128]
-    # state, info = game.reset()
-    # input_shape, output_size = (state.shape[2], state.shape[0], state.shape[1]), game.action_space.n
-    #
-    # actor_model = ActorCritic(input_shape, output_size, conv_layers_params, fc_layers, mode='actor',
-    #                           use_instance_norm=True)
-    # critic_model = ActorCritic(input_shape, output_size, conv_layers_params, fc_layers, mode='critic',
-    #                            use_instance_norm=True)
-    #
-    # A2C = A2CAgent(game, critic_model, actor_model, folder=os.path.join("logging", "SkiingDeterministic_1e4_A2C"),
-    #                value_network_lr=1e-4, actor_network_lr=1e-4,
-    #                validate_every_n_episodes=1000, validate_episodes=250, save_gif_every_x_epochs=50,
-    #                max_episode_len=1000, input_shape=input_shape, n_memory_episodes=250
-    #                , reset_options={"validation": False}, gif_fps=10, n_actions=output_size)
-    #
-    # A2C.training_batch(10000, 128)
     #
     # layer_params = [
     #     {'out_features': 256},
@@ -151,7 +102,6 @@ if __name__ == "__main__":
     #     {'out_features': 64},
     # ]
 
-    # game = gymnas.make("CartPole-v1", render_mode="rgb_array")
     # game = gymnas.make('MountainCar-v0', render_mode="rgb_array")
     #
     # output_size = game.action_space.n
@@ -225,6 +175,31 @@ if __name__ == "__main__":
     # train_agent(config_path, conv_layers_params, fc_layers, dueling, game=SnakeGame(10, 10, 10, default_start_prob=0.1),
     #             game_wrapper=SnakeGameWrap)
 
+    layer_params = [
+        {'out_features': 256},
+        {'out_features': 128},
+        {'out_features': 64},
+    ]
+
+    config_path = os.path.join("modeling", "configs", "cart_pole.yaml")
+    train_agent(config_path, None, layer_params)
+
+    config_path = os.path.join("modeling", "configs", "cart_pole_dsp1.yaml")
+    train_agent(config_path, None, layer_params)
+
+    config_path = os.path.join("modeling", "configs", "cart_pole_update10.yaml")
+    train_agent(config_path, None, layer_params)
+
+    config_path = os.path.join("modeling", "configs", "MountainCar.yaml")
+    train_agent(config_path, None, layer_params)
+
+    config_path = os.path.join("modeling", "configs", "Acrobot.yaml")
+    train_agent(config_path, None, layer_params)
+
+    config_path = os.path.join("modeling", "configs", "LunarLander.yaml")
+    train_agent(config_path, None, layer_params)
+
+
     conv_layers_params = [
         {'in_channels': 4, 'out_channels': 8, 'kernel_size': 7, 'stride': 4, 'padding': 1},
         {'in_channels': 8, 'out_channels': 16, 'kernel_size': 7, 'stride': 4, 'padding': 1},
@@ -233,17 +208,17 @@ if __name__ == "__main__":
     fc_layers = [256, 128]
 
     # SpaceInvaders
-    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders.yaml")
-    dueling = True
-    train_agent(config_path, conv_layers_params, fc_layers, dueling)
+    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders.yaml")
+    # dueling = True
+    # train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
     # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_per06.yaml")
     # dueling = True
     # train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
-    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma9.yaml")
-    dueling = True
-    train_agent(config_path, conv_layers_params, fc_layers, dueling)
+    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma90.yaml")
+    # dueling = True
+    # train_agent(config_path, conv_layers_params, fc_layers, dueling)
 
     # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma999.yaml")
     # dueling = True
@@ -251,18 +226,15 @@ if __name__ == "__main__":
 
     # MsPacmanNoFrameskip
     config_path = os.path.join("modeling", "configs", "trainer_config_MsPacman.yaml")
-    dueling = True
-    train_agent(config_path, conv_layers_params, fc_layers, dueling)
+    train_agent(config_path, conv_layers_params, fc_layers)
 
     # CarRacing
     config_path = os.path.join("modeling", "configs", "trainer_config_CarRacing.yaml")
-    dueling = True
-    train_agent(config_path, conv_layers_params, fc_layers, dueling, continuous=False)
+    train_agent(config_path, conv_layers_params, fc_layers, continuous=False)
 
     # BreakoutNoFrameskip
     config_path = os.path.join("modeling", "configs", "trainer_config_Breakout.yaml")
-    dueling = True
-    train_agent(config_path, conv_layers_params, fc_layers, dueling)
+    train_agent(config_path, conv_layers_params, fc_layers)
 
     # # SkiingDeterministic
     # config_path = os.path.join("modeling", "configs", "trainer_config_Skiing.yaml")

@@ -22,31 +22,33 @@ from torch.nn import utils
 import yaml
 import threading
 import queue
+from modeling.logger import Logger
+
 
 class Debugger:
     def __init__(self, agent):
         self.agent = agent
-        self.loss_history = []
-        self.gradient_norms = []
-        self.score_history = []
-        self.value_outputs = []
-        self.epsilons = []
+        self.loss_history = np.array([])
+        self.gradient_norms = np.array([])
+        self.score_history = np.array([])
+        self.epsilons = np.array([])
 
     def track_loss(self, loss):
-        self.loss_history.append(loss.item())
+        self.loss_history = np.append(self.loss_history, loss.item())
 
     def track_gradients(self):
         gradients = []
         for p in self.agent.model.parameters():
             if p.grad is not None:
                 gradients.append(p.grad.norm().item())
-        self.gradient_norms.append(np.mean(gradients))
+        mean_gradient = np.mean(gradients)
+        self.gradient_norms = np.append(self.gradient_norms, mean_gradient)
 
     def track_scores(self, score):
-        self.score_history.extend(score)
+        self.score_history = np.append(self.score_history, score)
 
     def track_epsilon(self, epsilon):
-        self.score_history.append(epsilon)
+        self.epsilons = np.append(self.epsilons, epsilon)
 
     @staticmethod
     def moving_average(a, window=3):
@@ -70,26 +72,26 @@ class Debugger:
         plt.ylabel('Gradient Norm')
         plt.legend()
 
-    def plot_epsilon(self, episodes, subplot=223):
+    def plot_epsilon(self, subplot=223):
         plt.subplot(subplot)
-        plt.plot(episodes, self.epsilons, label='Epsilon')
+        plt.plot(range(1, len(self.epsilons) + 1), self.epsilons, label='Epsilon')
         plt.title('Epsilon over Time')
         plt.xlabel('Optimization step')
         plt.ylabel('Epsilon')
         plt.legend()
 
-    def plot_scores(self, window, subplot=212): #212
+    def plot_scores(self, window, subplot=224): #212
         plt.subplot(subplot)
-        scores = np.array(self.score_history)
+        scores = self.score_history
         n_scores = len(scores)
         window = min(window, n_scores)
         running_avg = self.moving_average(scores, window)
-        running_avg_3 = self.moving_average(scores, min(window*3, n_scores))
-        running_avg_5 = self.moving_average(scores, min(window*5, n_scores))
+        running_avg_3 = self.moving_average(scores, min(window * 3, n_scores))
+        running_avg_5 = self.moving_average(scores, min(window * 5, n_scores))
         plt.plot(range(1, n_scores + 1), scores, label='Score')
         plt.plot(range(window, n_scores + 1), running_avg, label=f'Running Average {window}', linestyle='dashed')
-        plt.plot(range(window*3, n_scores + 1), running_avg_3, label=f'Running Average {window*3}', linestyle='dashed')
-        plt.plot(range(window*5, n_scores + 1), running_avg_5, label=f'Running Average {window*5}', linestyle='dashed')
+        plt.plot(range(window * 3, n_scores + 1), running_avg_3, label=f'Running Average {window * 3}', linestyle='dashed')
+        plt.plot(range(window * 5, n_scores + 1), running_avg_5, label=f'Running Average {window * 5}', linestyle='dashed')
         plt.title('Rewards History')
         plt.xlabel('Game Number')
         plt.ylabel('Score')
@@ -100,7 +102,7 @@ class Debugger:
         plt.figure(figsize=(15, 10))
         self.plot_loss(episodes)
         self.plot_grads(episodes)
-        # self.plot_epsilon(episodes)
+        self.plot_epsilon()
         self.plot_scores(window)
         plt.tight_layout()
         filename = f"{self.agent.prefix_name}_{epoch}_diagnostics.png"
@@ -149,8 +151,8 @@ class Trainer:
             self.visualizer = AtariGameViz(self.game, self.device)
         elif self.visualizer == "snake":
             self.visualizer = GameVisualizer_cv2(self.game)
-        self.model = model.to(self.device)
-        self.target_net = clone_model.to(self.device)
+        self.model = model.to(self.device, non_blocking=True)
+        self.target_net = clone_model.to(self.device, non_blocking=True)
         if config['folder']:
             os.makedirs(config['folder'], exist_ok=True)
             self.prefix_name = os.path.join(config['folder'], config['prefix_name'])
@@ -172,32 +174,20 @@ class Trainer:
         self.validation_log = []
         self.debugger = Debugger(self)
         self.best_model = {"model": None, "score": - np.inf}
-        self.queue = queue.Queue()
-        self.queue_processor_thread = threading.Thread(target=self.process_queue)
-        self.queue_processor_thread.daemon = True
-        self.queue_processor_thread.start()
         self.total_steps = 0
+        self.logger = Logger(apply=True, verbose=False, output_folder=self.prefix_name)
 
-    def process_queue(self):
-        while True:
-            task = self.queue.get()
-            if task is None:
-                break
-            task()
-
-    def choose_action(self, state, episode, validation=False):
+    def choose_action(self, state, epsilon, validation=False):
         if not isinstance(state, torch.Tensor):
-            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+            state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device, non_blocking=True)
         else:
-            state_tensor = state.unsqueeze(0).to(self.device)
+            state_tensor = state.unsqueeze(0).to(self.device, non_blocking=True)
 
         if validation:
             with torch.no_grad():
                 probs = self.model(state_tensor)
                 return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
         else:
-            epsilon = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1. * episode / self.EPS_DECAY)
-            self.debugger.track_epsilon(epsilon)
             if torch.rand(1, device=self.device).item() < epsilon or self.total_steps < self.warmup_steps:
                 return torch.randint(0, self.n_actions, (1,), device=self.device).item(), [0] * self.n_actions
             else:
@@ -208,14 +198,39 @@ class Trainer:
     def get_batch(self):
         transitions, indices, weights = self.memory.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
-        state_batch = torch.stack(batch.state).to(self.device)
-        action_batch = torch.stack(batch.action).to(self.device)
-        reward_batch = torch.cat(batch.reward).to(self.device)
-        next_state_batch = torch.cat([s for s in batch.next_state if s is not None]).to(self.device)
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool,
-                                      device=self.device)
-        weights = torch.tensor(weights, dtype=torch.float32, device=self.device).unsqueeze(1)
+
+        state_batch, action_batch, reward_batch, next_state_batch, non_final_mask = self.preallocate_tensors(batch)
+        next_state_batch = self.fill_tensors(batch, state_batch, action_batch, reward_batch, next_state_batch,
+                                             non_final_mask)
+        weights = self.process_weights(weights)
+
         return state_batch, action_batch, reward_batch, next_state_batch, non_final_mask, weights, indices
+
+    def preallocate_tensors(self, batch):
+        state_batch = torch.empty((self.batch_size,) + batch.state[0].shape, device=self.device, dtype=torch.float32)
+        action_batch = torch.empty((self.batch_size, 1), device=self.device, dtype=torch.int64)
+        reward_batch = torch.empty((self.batch_size,), device=self.device, dtype=torch.float32)
+        non_final_mask = torch.empty((self.batch_size,), device=self.device, dtype=torch.bool)
+        next_state_batch = torch.empty((self.batch_size,) + batch.state[0].shape, device=self.device,
+                                       dtype=torch.float32)
+        return state_batch, action_batch, reward_batch, next_state_batch, non_final_mask
+
+    def fill_tensors(self, batch, state_batch, action_batch, reward_batch, next_state_batch, non_final_mask):
+        next_state_index = 0
+        for i in range(self.batch_size):
+            state_batch[i] = torch.tensor(batch.state[i]).to(self.device, non_blocking=True)
+            action_batch[i] = torch.tensor(batch.action[i]).to(self.device, non_blocking=True)
+            reward_batch[i] = torch.tensor(batch.reward[i]).to(self.device, non_blocking=True)
+            non_final_mask[i] = batch.next_state[i] is not None
+            if non_final_mask[i]:
+                next_state_batch[next_state_index] = torch.tensor(batch.next_state[i]).to(self.device,
+                                                                                          non_blocking=True)
+                next_state_index += 1
+        next_state_batch = next_state_batch[:next_state_index]
+        return next_state_batch
+
+    def process_weights(self, weights):
+        return torch.tensor(weights, dtype=torch.float32).to(self.device, non_blocking=True).unsqueeze(1)
 
     def get_state_target_value(self, state_batch, action_batch, non_final_next_states, non_final_mask):
         state_action_values = self.model(state_batch).gather(1, action_batch)
@@ -230,7 +245,8 @@ class Trainer:
         return state_action_values, target_action_values
 
     def calc_loss(self):
-        state_batch, action_batch, reward_batch, next_state_batch, non_final_mask, weights, indices = self.get_batch()
+        batch = self.logger.time_and_log(self.get_batch, "get_batch")
+        state_batch, action_batch, reward_batch, next_state_batch, non_final_mask, weights, indices = batch
         state_action_values = self.model(state_batch).gather(1, action_batch)
         next_state_values = torch.zeros(self.batch_size, device=self.device)
         next_state_values[non_final_mask] = self.target_net(next_state_batch).max(1)[0].detach()
@@ -247,12 +263,13 @@ class Trainer:
     def optimize_model(self):
         if len(self.memory) < self.batch_size or len(self.memory) < self.warmup_steps:
             return
-        loss, expected_state_action_values, state_action_values, indices = self.calc_loss()
+        loss, expected_state_action_values, state_action_values, indices = self.logger.time_and_log(self.calc_loss,
+                                                                                                    "calc_loss")
         self.optimizer.zero_grad()
-        loss.backward()
+        self.logger.time_and_log(loss.backward, "loss_back")
         self.debugger.track_gradients()
         self.apply_grad_clip()
-        self.optimizer.step()
+        self.logger.time_and_log(self.optimizer.step, "optimizer_step")
         with torch.no_grad():
             td_errors = (expected_state_action_values.unsqueeze(1) - state_action_values).abs().squeeze().cpu().numpy()
             self.memory.update_priorities(indices, td_errors)
@@ -279,21 +296,20 @@ class Trainer:
         return obs.unsqueeze(0).to(device)
 
     def update_target_net(self):
+        if len(self.memory) < self.batch_size or len(self.memory) < self.warmup_steps:
+            return
         target_dict, policy_dict = self.target_net.state_dict(), self.model.state_dict()
         for key in policy_dict:
             target_dict[key] = policy_dict[key] * self.TAU + target_dict[key] * (1 - self.TAU)
         self.target_net.load_state_dict(target_dict)
 
     def save_gif_if_needed(self, episode, action, probs):
-        def task():
+        if (episode + 1) % self.save_gif_every_x_epochs == 0:
             self.visualize_and_save_game_state(
                 episode,
                 self.game_wrapper.preprocessor.postprocess_action(action),
                 probs
             )
-
-        if (episode + 1) % self.save_gif_every_x_epochs == 0:
-            self.queue.put(task)
 
     def process_episode_step(self, steps, episode, action, probs, reward, terminated, truncated, state, obs):
         done = terminated or truncated
@@ -305,38 +321,37 @@ class Trainer:
                          next_state_tensor,
                          torch.tensor([reward], device=self.device))
         if (self.total_steps + 1) % self.update_every_n_steps == 0:
-            self.optimize_model()
+            self.logger.time_and_log(self.optimize_model, "optimize_model")
         if (self.total_steps + 1) % self.update_target_every_n_steps == 0:
-            self.update_target_net()
-        self.save_gif_if_needed(episode, action, probs)
+            self.logger.time_and_log(self.update_target_net, "update_target_net")
+        self.logger.time_and_log(self.save_gif_if_needed, "save_gif_if_needed", *(episode, action, probs))
         self.total_steps += 1
         return done, False
 
     def run_episode(self, episode):
-        state, info = self.game_wrapper.reset(self.reset_options)
+        state, info = self.logger.time_and_log(self.game_wrapper.reset, "reset_game", self.reset_options)
         done, steps, rewards = False, 0, []
+        epsilon = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1. * episode / self.EPS_DECAY)
         while not done and steps <= self.max_episode_len:
             steps += 1
-            action, probs = self.choose_action(state, episode)
-            obs, reward, terminated, truncated, _ = self.game_wrapper.step(action)
-            done, failed = self.process_episode_step(steps, episode, action, probs, reward,
-                                                     terminated, truncated, state, obs)
+            action, probs = self.logger.time_and_log(self.choose_action, "choose_action", state, epsilon)
+            obs, reward, terminated, truncated, _ = self.logger.time_and_log(self.game_wrapper.step, "g_step", action)
+            ps_args = (steps, episode, action, probs, reward, terminated, truncated, state, obs)
+            done, failed = self.logger.time_and_log(self.process_episode_step, "process_episode_step", *ps_args)
             if failed:
                 break
             rewards.append(reward)
             state = obs
         score = self.game_wrapper.get_score()
         self.debugger.track_scores([score])
+        self.debugger.track_epsilon(epsilon)
         self.game_wrapper.game.close()
         return np.sum(rewards), score
 
     def visualize_and_save_game_state(self, episode, game_action, probs):
-        def task():
+        if (episode + 1) % self.save_gif_every_x_epochs == 0:
             image = self.visualizer.save_current_frame(game_action, probs)
             self.frames.append(image)
-
-        if (episode + 1) % self.save_gif_every_x_epochs == 0:
-            self.queue.put(task)
 
     def print_epoch_summary(self, episode, relevant_rewards, relevant_scores, validation=False):
         min_reward, max_reward = int(np.nanmin(relevant_rewards)), int(np.nanmax(relevant_rewards))
@@ -455,13 +470,9 @@ class Trainer:
             torch.save(self.model.state_dict(),
                        f"{self.prefix_name}best_model_{episode + 1}_score_{int(mean_score)}.pt")
 
-    def shutdown(self):
-        self.queue.put(None)
-        self.queue_processor_thread.join()
-
     def train(self):
         for episode in range(self.episodes):
-            total_reward, score = self.run_episode(episode)
+            total_reward, score = self.logger.time_and_log(self.run_episode, "run_episode", episode)
             if (episode + 1) % self.save_diagnostics == 0:
                 self.debugger.plot_diagnostics(episode + 1)
                 print(f"saved diagnostics episode: {episode + 1}")
@@ -471,6 +482,7 @@ class Trainer:
                 print("debug")
             self.rewards_memory.append(total_reward)
             self.score_memory.append(score)
-            self.log_and_compile_gif(episode)
+            self.logger.time_and_log(self.log_and_compile_gif, "log_and_compile_gif", episode)
             if (episode+1) % self.validate_every_n_episodes == 0:
                 self.validate_score(episode)
+            self.logger.dump_log("training_logs.csv")

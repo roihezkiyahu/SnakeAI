@@ -51,10 +51,10 @@ class Preprocessor:
             obs = obs.unsqueeze(0)
         elif len(obs.shape) == 3:
             obs = obs.permute(2, 0, 1)
-        if self.resize_img:
-            obs = F.interpolate(obs.unsqueeze(0), size=self.resize_img[::-1], mode='bicubic', align_corners=False).squeeze(0)
-        if self.gray_scale and obs.shape[0] == 3:
-            obs = obs.mean(dim=0, keepdim=True)
+            if self.resize_img:
+                obs = F.interpolate(obs.unsqueeze(0), size=self.resize_img[::-1], mode='bicubic', align_corners=False).squeeze(0)
+            if self.gray_scale and obs.shape[0] == 3:
+                obs = obs.mean(dim=0, keepdim=True)
         obs = obs / self.normalize_factor
         return obs
 
@@ -114,12 +114,12 @@ class AtariGameWrapper:
 
     def set_random_seed(self):
         seed = random.randint(0, 1000000)
-        self.game.seed(seed)
-        self.game.action_space.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        random.seed(seed)
         try:
+            self.game.seed(seed)
+            self.game.action_space.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            random.seed(seed)
             self.game.unwrapped.seed(seed)
             self.game.unwrapped.np_random.__init__(PCG64(SeedSequence(seed)))
             self.game.unwrapped.ale.setInt('random_seed', seed)
