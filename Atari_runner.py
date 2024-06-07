@@ -12,6 +12,7 @@ from modeling.SnakeWrapper import SnakeGameWrap
 def train_a2c(config, game, game_wrapper, conv_layers_params, fc_layers):
     state, info = game_wrapper.reset()
     input_shape, output_size = state.shape, game.action_space.n
+    fix_groups_and_input(input_shape, conv_layers_params)
     actor_model = ActorCritic(input_shape, output_size, conv_layers_params, fc_layers, mode='actor')
     critic_model = ActorCritic(input_shape, output_size, conv_layers_params, fc_layers, mode='critic')
     config["trainer"]["input_shape"] = input_shape
@@ -57,11 +58,26 @@ def initialize_trainer(config, model, clone_model):
     return Trainer(config['trainer'], model, clone_model)
 
 
+def fix_groups_and_input(input_shape, conv_layers_params):
+    num_channels = input_shape[0]
+    first_layer = conv_layers_params[0]
+    if "in_channels" in first_layer.keys():
+        in_channels = first_layer["in_channels"]
+        if in_channels != num_channels:
+            print(f"wrong number of input channels: expected {in_channels} got {num_channels}, changed number of input channels")
+            first_layer["in_channels"] = num_channels
+            if "groups" in first_layer.keys():
+                first_layer["groups"] = num_channels
+                first_layer["out_channels"] = num_channels
+                conv_layers_params[1]["in_channels"] = num_channels
+
+
 def create_models(config, game_wrapper, conv_layers_params, fc_layers, dueling, use_cnn=True):
     state, info = game_wrapper.reset()
     input_shape, output_size = state.shape, game_wrapper.game.action_space.n
 
     if use_cnn:
+        fix_groups_and_input(input_shape, conv_layers_params)
         model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=dueling)
         clone_model = CNNDQNAgent(input_shape, output_size, conv_layers_params, fc_layers, dueling=dueling)
     else:
@@ -76,6 +92,7 @@ def create_models(config, game_wrapper, conv_layers_params, fc_layers, dueling, 
 def train_agent(config_path, conv_layers_params, fc_layers, continuous=None, a2c=False,
                 game_wrapper=None, game=None):
     config = load_config(config_path)
+    conv_layers_params = conv_layers_params.copy()
     if game is None:
         game = initialize_game(config, continuous)
     game_wrapper = get_game_wrapper(game, config, game_wrapper)

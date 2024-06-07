@@ -147,7 +147,7 @@ class A2CAgent(Trainer):
                 action, policy, value, obs_torch = self.get_action_and_value(obs)
                 actions[i] = action
                 values[i] = value
-                observations[i] = obs
+                observations[i] = obs_torch
                 obs, reward, done = self.step_game(action)
                 rewards[i], dones[i], total_reward = reward, done, total_reward + reward
                 i, steps, episode_count, total_reward, obs = self.handle_episode_end(i, done, steps, total_reward,

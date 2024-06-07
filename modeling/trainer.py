@@ -176,6 +176,7 @@ class Trainer:
         self.best_model = {"model": None, "score": - np.inf}
         self.total_steps = 0
         self.logger = Logger(apply=True, verbose=False, output_folder=self.prefix_name)
+        self.early_stopping = config.get('early_stopping', 0)
 
     def choose_action(self, state, epsilon, validation=False):
         if not isinstance(state, torch.Tensor):
@@ -456,4 +457,9 @@ class Trainer:
             self.logger.time_and_log(self.log_and_compile_gif, "log_and_compile_gif", episode)
             if (episode+1) % self.validate_every_n_episodes == 0:
                 self.validate_score(episode)
+                if self.early_stopping:
+                    mean_scores = np.array([val_log["Mean Score"] for val_log in self.validation_log])
+                    if np.all(max(mean_scores) > mean_scores[-min(self.early_stopping, len(mean_scores)):]):
+                        print("early stopped")
+                        break
                 self.logger.dump_log("training_logs.csv")

@@ -6,7 +6,7 @@ trainer:
   gamma: 0.99
   n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/Snake_bs128"
+  folder: "logging/Snake_bs128_deathind"
   save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1
@@ -24,13 +24,13 @@ trainer:
   patience: 3
   game_wrapper:
     name: "snake"
-    numeric_value: true
+    numeric_value: false
     for_cnn: true
-    food_direction: true
+    food_direction: false
     add_death_indicators: true
-    direction: true
+    direction: false
     clear_path_pixels: false
-    length_aware: true
+    length_aware: false
     reward_params:
       death: -1.5
       move: 0
@@ -60,7 +60,7 @@ trainer:
   epochs: 15000 # for A2C only
   dueling: true
   use_cnn: true
-  early_stopping: 0
+  early_stopping: 5
 
 atari_game_wrapper:
   resize_img: [ 80, 105 ]

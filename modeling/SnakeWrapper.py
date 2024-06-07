@@ -4,6 +4,8 @@ import random
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from collections import deque
+
 
 class Preprocessor:
     def __init__(self, game, config):
@@ -185,6 +187,7 @@ class Preprocessor:
                 additional_features_chanels = np.stack(
                     [np.full((self.game.height + 2, self.game.width + 2), feat) for feat in additional_features] + [state], axis=0)
                 return additional_features_chanels
+            return np.expand_dims(state, 0)
         else:
             state = state.flatten()
             if additional_features:
@@ -244,6 +247,29 @@ class SnakeGameWrap:
         self.increasing_start_len = config['increasing_start_len']
         self.max_not_eaten = config['max_not_eaten']
 
+    def is_clear_path_between_head_and_tail(self):
+        """Check if there is a clear path between the snake's head and tail.
+
+        Returns:
+            bool: True if there is a clear path, False otherwise.
+        """
+        head_x, head_y = self.game.snake[0]
+        tail_x, tail_y = self.game.snake[-1]
+        snake_positions = set((x, y) for x, y in self.game.snake[:-1])
+        visited = set()
+        queue = deque([(head_x, head_y)])
+        while queue:
+            (x, y) = queue.popleft()
+            if (x, y) == (tail_x, tail_y):
+                return True
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nx, ny = x + dx, y + dy
+                if (nx, ny) not in visited and (nx, ny) not in snake_positions:
+                    if 0 <= nx < self.game.width and 0 <= ny < self.game.height:
+                        visited.add((nx, ny))
+                        queue.append((nx, ny))
+        return False
+
     def get_score(self):
         return self.game.score
 
@@ -264,6 +290,10 @@ class SnakeGameWrap:
         reward += (self.game.score - self.last_score) * self.reward_params['food']
         reward += (self.game.score - self.last_score) * self.reward_params.get('food_length_dependent', 0) * snake_len
         reward += done * self.reward_params.get('death_length_dependent', 0) * snake_len
+        clear_path_reward = self.reward_params.get('no_clear_path', 0)
+        if clear_path_reward != 0:
+            if not self.is_clear_path_between_head_and_tail():
+                reward += clear_path_reward
         self.last_score = self.game.score
         return reward
 
