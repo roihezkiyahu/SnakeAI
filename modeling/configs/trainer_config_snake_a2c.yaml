@@ -6,7 +6,7 @@ trainer:
   gamma: 0.99
   n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/Snake_bs128"
+  folder: "logging/Snake_bs128_a2c"
   save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1
@@ -57,7 +57,7 @@ trainer:
   actor_network_lr: 1e-4 # for A2C only
   entropy_coefficient: 0.01 # for A2C only
   input_shape: (11, 12, 12) # for A2C only
-  epochs: 15000 # for A2C only
+  epochs: 25000 # for A2C only
   dueling: true
   use_cnn: true
 

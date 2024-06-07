@@ -6,7 +6,7 @@ trainer:
   gamma: 0.99
   n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/Snake_bs128"
+  folder: "logging/Snake_bs128_cpp"
   save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1
@@ -78,7 +78,7 @@ snake_wrapper:
   food_direction: true
   add_death_indicators: true
   direction: true
-  clear_path_pixels: false
+  clear_path_pixels: true
   length_aware: true
   reward_params:
     death: -1.5

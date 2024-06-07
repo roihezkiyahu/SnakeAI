@@ -204,9 +204,9 @@ class Trainer:
         reward_batch = torch.cat(batch.reward).to(self.device)
         self.logger.stop_timer("state_action_reward_batch")
         self.logger.start_timer("next_state_batch_final_mask_weights")
-        non_final_next_states = [s.to(self.device) for s in batch.next_state if s is not None]
+        non_final_next_states = [s for s in batch.next_state if s is not None]
         if non_final_next_states:
-            next_state_batch = torch.cat(non_final_next_states)
+            next_state_batch = torch.cat(non_final_next_states).to(self.device)
         else:
             next_state_batch = torch.empty((0,) + state_batch.shape[1:], device=self.device)
         non_final_mask = torch.tensor([s is not None for s in batch.next_state], dtype=torch.bool, device=self.device)
@@ -456,4 +456,4 @@ class Trainer:
             self.logger.time_and_log(self.log_and_compile_gif, "log_and_compile_gif", episode)
             if (episode+1) % self.validate_every_n_episodes == 0:
                 self.validate_score(episode)
-            self.logger.dump_log("training_logs.csv")
+                self.logger.dump_log("training_logs.csv")

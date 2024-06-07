@@ -1,12 +1,12 @@
 trainer:
   game: ""
   render_mode: "rgb_array"
-  episodes: 10000
+  episodes: 15000
   learning_rate: 5e-4
-  gamma: 0.99
+  gamma: 0.9
   n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/Snake_bs128"
+  folder: "logging/Snake_bs128_gamma90"
   save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1

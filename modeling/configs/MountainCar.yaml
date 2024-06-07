@@ -3,17 +3,17 @@ trainer:
   render_mode: "rgb_array"
   episodes: 2500
   learning_rate: 1e-4
-  gamma: 0.99
+  gamma: 0.9
   n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/MountainCar_dsp01"
+  folder: "logging/MountainCar_dsp01_gamma90"
   save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1
   EPS_END: 0.05
   EPS_DECAY: 250
   TAU: 5e-4
-  max_episode_len: 1000
+  max_episode_len: 500
   use_ddqn: true
   replaymemory: 10000
   optimizer: null

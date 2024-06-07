@@ -6,37 +6,54 @@ import copy
 import os
 from modeling.game_viz import GameVisualizer, GameVisualizer_cv2
 from modeling.A2C import A2CAgent
+from Atari_runner import train_agent
 
 
 if __name__ == "__main__":
+    conv_layers_params = [
+        {'in_channels': 11, 'out_channels': 11, 'kernel_size': 3, 'stride': 1, 'padding': 1, 'groups': 11},
+        {'in_channels': 11, 'out_channels': 16, 'kernel_size': 1, 'stride': 1},
+        {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1},
+        {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1},
+        {'in_channels': 64, 'out_channels': 128, 'kernel_size': 3, 'stride': 2, 'padding': 1}
+    ]
+    fc_layers = [256]
 
-    ## regular run
-    # conv_layers_params = [
-    #     {'in_channels': 11, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1},
-    #     {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1},
-    #     {'in_channels': 64, 'out_channels': 128, 'kernel_size': 3, 'stride': 1, 'padding': 1}
-    # ]
-    # output_size = 4
-    # game = SnakeGame(10,10,10, default_start_prob=1)
-    # model = CNNDQNAgent((11, game.width+2, game.height+2), output_size, dueling=True,
-    #                     conv_layers_params=conv_layers_params)
-    # clone_model = CNNDQNAgent((11, game.width+2, game.height+2), output_size, dueling=True,
-    #                           conv_layers_params=conv_layers_params)
-    # clone_model.load_state_dict(copy.deepcopy(model.state_dict()))
+    # config_path = os.path.join("modeling", "configs", "trainer_config_snake.yaml")
+    # train_agent(config_path, conv_layers_params, fc_layers,
+    #             game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
     #
-    # game_wrapper = SnakeGameWrap(game, reward_params={'death': -1.5, 'move': 0, 'food': 1,
-    #                                                   'food_length_dependent': 0, 'death_length_dependent': 0})
+    # config_path = os.path.join("modeling", "configs", "trainer_config_snake_bs32.yaml")
+    # train_agent(config_path, conv_layers_params, fc_layers,
+    #             game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
     #
-    # visualizer = GameVisualizer_cv2(game)
+    # config_path = os.path.join("modeling", "configs", "trainer_config_snake_bs512.yaml")
+    # train_agent(config_path, conv_layers_params, fc_layers,
+    #             game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
     #
-    # trainer = Trainer(game, model, clone_model, episodes=10000, learning_rate=5e-5,
-    #                   gamma=0.99, validate_every_n_episodes=100,
-    #                  folder=os.path.join("logging", "morechannels_lessDimReduction_vistest"), save_gif_every_x_epochs=100,
-    #                  max_episode_len=10000, n_memory_episodes=100,
-    #                  use_ddqn=True, EPS_END=0, EPS_START=1, batch_size=512,
-    #                   EPS_DECAY=250, replaymemory=5000, game_wrapper=game_wrapper, visualizer=visualizer,
-    #                   reset_options={"validation": False})
-    # trainer.train()
+    # config_path = os.path.join("modeling", "configs", "trainer_config_snake_lendepreward.yaml")
+    # train_agent(config_path, conv_layers_params, fc_layers,
+    #             game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
+
+    config_path = os.path.join("modeling", "configs", "trainer_config_snake_gamma90.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers,
+                game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
+
+    config_path = os.path.join("modeling", "configs", "trainer_config_snake_target50.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers,
+                game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
+
+    config_path = os.path.join("modeling", "configs", "trainer_config_snake_per06.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers,
+                game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
+
+    config_path = os.path.join("modeling", "configs", "trainer_config_snake_cpp.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers,
+                game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
+
+    config_path = os.path.join("modeling", "configs", "trainer_config_snake_a2c.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers,
+                game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
 
 
     ### A2C run

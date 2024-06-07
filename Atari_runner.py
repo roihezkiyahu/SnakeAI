@@ -181,20 +181,20 @@ if __name__ == "__main__":
         {'out_features': 64},
     ]
 
-    # config_path = os.path.join("modeling", "configs", "cart_pole.yaml")
-    # train_agent(config_path, None, layer_params)
-    #
-    # config_path = os.path.join("modeling", "configs", "cart_pole_dsp1.yaml")
-    # train_agent(config_path, None, layer_params)
-    #
-    # config_path = os.path.join("modeling", "configs", "cart_pole_update10.yaml")
-    # train_agent(config_path, None, layer_params)
-
-    config_path = os.path.join("modeling", "configs", "MountainCar.yaml")
+    config_path = os.path.join("modeling", "configs", "cart_pole.yaml")
     train_agent(config_path, None, layer_params)
 
-    config_path = os.path.join("modeling", "configs", "Acrobot.yaml")
+    config_path = os.path.join("modeling", "configs", "cart_pole_dsp1.yaml")
     train_agent(config_path, None, layer_params)
+
+    config_path = os.path.join("modeling", "configs", "cart_pole_update10.yaml")
+    train_agent(config_path, None, layer_params)
+
+    # config_path = os.path.join("modeling", "configs", "MountainCar.yaml")
+    # train_agent(config_path, None, layer_params)
+
+    # config_path = os.path.join("modeling", "configs", "Acrobot.yaml")
+    # train_agent(config_path, None, layer_params)
 
     config_path = os.path.join("modeling", "configs", "LunarLander.yaml")
     train_agent(config_path, None, layer_params)

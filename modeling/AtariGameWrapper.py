@@ -46,7 +46,7 @@ class Preprocessor:
         self.device = device
 
     def preprocess_state(self, obs):
-        obs = torch.tensor(obs, dtype=torch.float32)
+        obs = torch.tensor(obs, dtype=torch.float32, device=self.device)
         if len(obs.shape) == 2:
             obs = obs.unsqueeze(0)
         elif len(obs.shape) == 3:
@@ -56,8 +56,9 @@ class Preprocessor:
                                     align_corners=False).squeeze(0)
             if self.gray_scale and obs.shape[0] == 3:
                 obs = obs.mean(dim=0, keepdim=True)
-        obs.div_(self.normalize_factor)
-        return obs
+        if self.normalize_factor != 1:
+            obs.div_(self.normalize_factor)
+        return obs.cpu()
 
     @staticmethod
     def postprocess_action(action):
@@ -68,7 +69,7 @@ class AtariGameWrapper:
     def __init__(self, game, config):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.game = game
-        self.episode_rewards = []
+        self.episode_rewards = np.array([])
         self.preprocessor = Preprocessor(config, self.device)
         self.env_memory = deque([], maxlen=int(config['random_envs']))
         self.default_start_prob = float(config['default_start_prob'])
@@ -77,74 +78,74 @@ class AtariGameWrapper:
         self.losing_live_penalty = int(config.get("losing_live_penalty", 0))
         self.initial_frame_skip = int(config.get("initial_frame_skip", 0))
         self.lives = 0
-        self.stacked_frames = deque([], maxlen=self.stack_n_frames)
+        self.stacked_frames = None
 
-    def init_random_start(self, seed):
-        obs, info = self.game.reset(seed=seed)
+    def init_random_start(self):
+        obs, info = self.game.reset()
         for _ in range(random.randint(*self.random_steps_range)):
             action = self.game.action_space.sample()
             obs, reward, done, trunc, info = self.game.step(action)
             if done:
-                obs, info = self.game.reset(seed=seed)
+                obs, info = self.game.reset()
         return obs, info
 
     def get_score(self):
-        return sum(self.episode_rewards)
+        return np.sum(self.episode_rewards)
 
     def step(self, action):
         obs, reward, done, trunc, info = self.game.step(action)
-        self.episode_rewards.append(reward)
+        self.episode_rewards = np.append(self.episode_rewards, reward)
         if self.lives > info.get('lives', 0):
             reward -= self.losing_live_penalty
-            self.lives = info.get('lives', 0)
+            self.lives = info.get('lives')
         obs = self.preprocessor.preprocess_state(obs)
         if self.stack_n_frames > 0:
-            self.stacked_frames.append(obs)
+            self.stacked_frames = torch.roll(self.stacked_frames, shifts=-1, dims=0)
+            self.stacked_frames[-1] = obs
             obs = torch.cat(list(self.stacked_frames), dim=0)
         return obs, reward, done, trunc, info
 
-    def init_rand_pos(self, seed):
+    def init_rand_pos(self):
         low = self.game.observation_space.low
         high = self.game.observation_space.high
-        random_start_state = torch.tensor(np.random.uniform(low, high), dtype=torch.float32, device=self.device)
-        state, info = self.game.reset(seed=seed)
+        random_start_state = torch.tensor(np.random.uniform(low, high), dtype=torch.float32)
+        state, info = self.game.reset()
         self.game.unwrapped.state = random_start_state.cpu().numpy().astype(state.dtype)
         obs = self.game.unwrapped.state
         obs = self.preprocessor.preprocess_state(obs)
         return obs, info
 
-    def set_random_seed(self):
-        seed = random.randint(0, 1000000)
-        try:
-            self.game.seed(seed)
-            self.game.action_space.seed(seed)
-            np.random.seed(seed)
-            torch.manual_seed(seed)
-            random.seed(seed)
-            self.game.unwrapped.seed(seed)
-            self.game.unwrapped.np_random.__init__(PCG64(SeedSequence(seed)))
-            self.game.unwrapped.ale.setInt('random_seed', seed)
-            self.game.unwrapped.ale.__init__()
-        except:
-            return seed
-        return seed
+#     def set_random_seed(self):
+#         seed = random.randint(0, 1000000)
+#         try:
+#             self.game.seed(seed)
+#             self.game.action_space.seed(seed)
+#             np.random.seed(seed)
+#             torch.manual_seed(seed)
+#             random.seed(seed)
+#             self.game.unwrapped.seed(seed)
+#             self.game.unwrapped.np_random.__init__(PCG64(SeedSequence(seed)))
+#             self.game.unwrapped.ale.setInt('random_seed', seed)
+#             self.game.unwrapped.ale.__init__()
+#         except:
+#             return seed
+#         return seed
 
     def reset(self, options={}):
-        seed = self.set_random_seed()
-        self.episode_rewards, rand_start = [], False
+        self.episode_rewards, rand_start = np.array([]), False
         validation = options.get('validation', False)
         if options.get('randomize_position', False) and not validation:
-            obs, info = self.init_rand_pos(seed)
+            obs, info = self.init_rand_pos()
             self.lives = info.get('lives', 0)
             return obs, info
         if random.random() > self.default_start_prob and not validation:
-            obs, info = self.init_random_start(seed)
+            obs, info = self.init_random_start()
             rand_start = True
         else:
-            obs, info = self.game.reset(seed=seed)
+            obs, info = self.game.reset()
         obs = self.preprocessor.preprocess_state(obs)
         if self.stack_n_frames > 0:
-            self.stacked_frames = deque([obs] * self.stack_n_frames, maxlen=self.stack_n_frames)
+            self.stacked_frames = obs.unsqueeze(0).repeat(self.stack_n_frames, 1, 1, 1)
             obs = torch.cat(list(self.stacked_frames), dim=0)
         self.lives = info.get('lives', 0)
         if not rand_start:
@@ -154,3 +155,4 @@ class AtariGameWrapper:
 
     def on_validation_end(self, episode, rewards, scores):
         pass
+
