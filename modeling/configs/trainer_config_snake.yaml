@@ -6,7 +6,7 @@ trainer:
   gamma: 0.99
   n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/Snake_bs128"
+  folder: "logging/Snake_bs128_cf5005k"
   save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1
@@ -38,8 +38,8 @@ trainer:
       food_length_dependent: 0
       death_length_dependent: 0
     failed_init_val: -1.5
-    close_food_episodes_skip: 100
-    close_food: 2500
+    close_food_episodes_skip: 500
+    close_food: 5000
     max_init_len: 5
     increasing_start_len: true
     max_not_eaten: 100
@@ -60,7 +60,7 @@ trainer:
   epochs: 15000 # for A2C only
   dueling: true
   use_cnn: true
-  early_stopping: 0
+  early_stopping: 15
 
 atari_game_wrapper:
   resize_img: [ 80, 105 ]

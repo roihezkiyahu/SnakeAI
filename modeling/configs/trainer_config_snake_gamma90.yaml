@@ -60,6 +60,8 @@ trainer:
   epochs: 15000 # for A2C only
   dueling: true
   use_cnn: true
+  early_stopping: 10
+
 
 atari_game_wrapper:
   resize_img: [ 80, 105 ]
