@@ -92,7 +92,7 @@ def create_models(config, game_wrapper, conv_layers_params, fc_layers, dueling, 
 def train_agent(config_path, conv_layers_params, fc_layers, continuous=None, a2c=False,
                 game_wrapper=None, game=None):
     config = load_config(config_path)
-    conv_layers_params = conv_layers_params.copy()
+    conv_layers_params = conv_layers_params.copy() if not conv_layers_params is None else None
     if game is None:
         game = initialize_game(config, continuous)
     game_wrapper = get_game_wrapper(game, config, game_wrapper)
@@ -198,14 +198,14 @@ if __name__ == "__main__":
         {'out_features': 64},
     ]
 
-    config_path = os.path.join("modeling", "configs", "cart_pole.yaml")
-    train_agent(config_path, None, layer_params)
-
-    config_path = os.path.join("modeling", "configs", "cart_pole_dsp1.yaml")
-    train_agent(config_path, None, layer_params)
-
-    config_path = os.path.join("modeling", "configs", "cart_pole_update10.yaml")
-    train_agent(config_path, None, layer_params)
+    # config_path = os.path.join("modeling", "configs", "cart_pole.yaml")
+    # train_agent(config_path, None, layer_params)
+    #
+    # config_path = os.path.join("modeling", "configs", "cart_pole_dsp1.yaml")
+    # train_agent(config_path, None, layer_params)
+    #
+    # config_path = os.path.join("modeling", "configs", "cart_pole_update10.yaml")
+    # train_agent(config_path, None, layer_params)
 
     # config_path = os.path.join("modeling", "configs", "MountainCar.yaml")
     # train_agent(config_path, None, layer_params)
@@ -213,8 +213,8 @@ if __name__ == "__main__":
     # config_path = os.path.join("modeling", "configs", "Acrobot.yaml")
     # train_agent(config_path, None, layer_params)
 
-    config_path = os.path.join("modeling", "configs", "LunarLander.yaml")
-    train_agent(config_path, None, layer_params)
+    # config_path = os.path.join("modeling", "configs", "LunarLander.yaml")
+    # train_agent(config_path, None, layer_params)
 
 
     conv_layers_params = [
@@ -224,38 +224,45 @@ if __name__ == "__main__":
         {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}]
     fc_layers = [256, 128]
 
-    # SpaceInvaders
-    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders.yaml")
-    # dueling = True
-    # train_agent(config_path, conv_layers_params, fc_layers, dueling)
-
-    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_per06.yaml")
-    # dueling = True
-    # train_agent(config_path, conv_layers_params, fc_layers, dueling)
-
-    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma90.yaml")
-    # dueling = True
-    # train_agent(config_path, conv_layers_params, fc_layers, dueling)
-
-    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma999.yaml")
-    # dueling = True
-    # train_agent(config_path, conv_layers_params, fc_layers, dueling)
+    # CarRacing
+    config_path = os.path.join("modeling", "configs", "trainer_config_CarRacing.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers, continuous=False)
 
     # MsPacmanNoFrameskip
     config_path = os.path.join("modeling", "configs", "trainer_config_MsPacman.yaml")
     train_agent(config_path, conv_layers_params, fc_layers)
 
-    # CarRacing
-    config_path = os.path.join("modeling", "configs", "trainer_config_CarRacing.yaml")
-    train_agent(config_path, conv_layers_params, fc_layers, continuous=False)
+    config_path = os.path.join("modeling", "configs", "trainer_config_MsPacman_llp500.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers)
 
-    # BreakoutNoFrameskip
+    # SpaceInvaders
+    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers)
+
+    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_llp50.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers)
+
+    config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_llp250.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers)
+
+    # config_path = os.path.join("modeling", "configs", "trainer_config_SpaceInvaders_gamma999.yaml")
+    # train_agent(config_path, conv_layers_params, fc_layers)
+
+    # Breakout
     config_path = os.path.join("modeling", "configs", "trainer_config_Breakout.yaml")
     train_agent(config_path, conv_layers_params, fc_layers)
 
-    # # SkiingDeterministic
-    # config_path = os.path.join("modeling", "configs", "trainer_config_Skiing.yaml")
-    # dueling = True
-    # train_agent(config_path, conv_layers_params, fc_layers, dueling)
+    config_path = os.path.join("modeling", "configs", "trainer_config_Breakout_llp5.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers)
+
+    config_path = os.path.join("modeling", "configs", "trainer_config_Breakout_llp10.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers)
+
+    # SkiingDeterministic
+    config_path = os.path.join("modeling", "configs", "trainer_config_Skiing.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers)
+
+    config_path = os.path.join("modeling", "configs", "trainer_config_Skiing_gamma999.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers)
 
 

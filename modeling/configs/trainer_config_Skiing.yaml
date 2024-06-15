@@ -1,7 +1,7 @@
 trainer:
   game: "SkiingNoFrameskip-v4"
   render_mode: "rgb_array"
-  episodes: 10000
+  episodes: 25000
   learning_rate: 5e-4
   gamma: 0.99
   n_memory_episodes: 250
@@ -38,6 +38,9 @@ trainer:
   entropy_coefficient: 0.01 # for A2C only
   input_shape: (11, 12, 12) # for A2C only
   epochs: 15000 # for A2C only
+  early_stopping: 20
+  prior_probs: [0.7,0.15,0.15]
+
 
 atari_game_wrapper:
   resize_img: [80, 105]
@@ -48,3 +51,4 @@ atari_game_wrapper:
   stack_n_frames: 4
   normalize_factor: 255
   frame_skip: 4
+  prior_probs: [0.7,0.15,0.15]

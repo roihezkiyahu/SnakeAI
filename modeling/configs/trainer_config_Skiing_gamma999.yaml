@@ -1,19 +1,19 @@
 trainer:
-  game: "SpaceInvadersNoFrameskip-v4"
+  game: "SkiingNoFrameskip-v4"
   render_mode: "rgb_array"
-  episodes: 10000
-  learning_rate: 1e-4
+  episodes: 25000
+  learning_rate: 5e-4
   gamma: 0.999
   n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/SpaceInvadersNoFrameskip_1e4_Gamma999_llp50_bs64"
+  folder: "logging/SkiingNoFrameskip_stack4_gamma999"
   save_gif_every_x_epochs: 250
-  batch_size: 64
+  batch_size: 128
   EPS_START: 1
-  EPS_END: 0.1
+  EPS_END: 0.05
   EPS_DECAY: 250
   TAU: 5e-4
-  max_episode_len: 1500
+  max_episode_len: 2000
   use_ddqn: true
   replaymemory: 25000
   optimizer: null
@@ -39,16 +39,15 @@ trainer:
   input_shape: (11, 12, 12) # for A2C only
   epochs: 15000 # for A2C only
   early_stopping: 20
-
+  prior_probs: [0.7,0.15,0.15]
 
 atari_game_wrapper:
   resize_img: [80, 105]
   gray_scale: true
   random_envs: 0
   default_start_prob: 0.5
-  random_steps_range: [50, 300]
+  random_steps_range: [250, 1000]
   stack_n_frames: 4
-  losing_live_penalty: 50
-  initial_frame_skip: 30
   normalize_factor: 255
-  frame_skip: 3
+  frame_skip: 4
+  prior_probs: [0.7,0.15,0.15]

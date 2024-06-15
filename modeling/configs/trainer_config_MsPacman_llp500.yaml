@@ -1,19 +1,19 @@
 trainer:
-  game: "SpaceInvadersNoFrameskip-v4"
+  game: "MsPacmanNoFrameskip-v4"
   render_mode: "rgb_array"
-  episodes: 10000
+  episodes: 25000
   learning_rate: 1e-4
-  gamma: 0.999
+  gamma: 0.95
   n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/SpaceInvadersNoFrameskip_1e4_Gamma999_llp50_bs64"
+  folder: "logging/MsPacmanNoFrameskip_1e4_gamma95_llp500_dsp01_bs64"
   save_gif_every_x_epochs: 250
   batch_size: 64
   EPS_START: 1
-  EPS_END: 0.1
+  EPS_END: 0.05
   EPS_DECAY: 250
   TAU: 5e-4
-  max_episode_len: 1500
+  max_episode_len: 2000
   use_ddqn: true
   replaymemory: 25000
   optimizer: null
@@ -45,10 +45,10 @@ atari_game_wrapper:
   resize_img: [80, 105]
   gray_scale: true
   random_envs: 0
-  default_start_prob: 0.5
+  default_start_prob: 0.1
   random_steps_range: [50, 300]
   stack_n_frames: 4
-  losing_live_penalty: 50
-  initial_frame_skip: 30
+  losing_live_penalty: 500
+  initial_frame_skip: 15
   normalize_factor: 255
   frame_skip: 3

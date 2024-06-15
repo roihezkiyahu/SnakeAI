@@ -77,13 +77,17 @@ class AtariGameWrapper:
         self.stack_n_frames = int(config['stack_n_frames'])
         self.losing_live_penalty = int(config.get("losing_live_penalty", 0))
         self.initial_frame_skip = int(config.get("initial_frame_skip", 0))
+        self.probs = config.get("prior_probs", None)
         self.lives = 0
         self.stacked_frames = None
 
     def init_random_start(self):
         obs, info = self.game.reset()
         for _ in range(random.randint(*self.random_steps_range)):
-            action = self.game.action_space.sample()
+            if self.probs is not None:
+                action = random.choices(range(self.game.action_space.n), weights=self.probs, k=1)[0]
+            else:
+                action = self.game.action_space.sample()
             obs, reward, done, trunc, info = self.game.step(action)
             if done:
                 obs, info = self.game.reset()

@@ -1,7 +1,7 @@
 trainer:
   game: "BreakoutNoFrameskip-v4"
   render_mode: "rgb_array"
-  episodes: 10000
+  episodes: 25000
   learning_rate: 1e-4
   gamma: 0.95
   n_memory_episodes: 250
@@ -38,6 +38,8 @@ trainer:
   entropy_coefficient: 0.01 # for A2C only
   input_shape: (11, 12, 12) # for A2C only
   epochs: 15000 # for A2C only
+  early_stopping: 20
+
 
 atari_game_wrapper:
   resize_img: [80, 105]

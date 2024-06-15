@@ -145,6 +145,7 @@ class Trainer:
         self.clip_grad = float(config['clip_grad'])
         self.save_model_every_n = int(config['save_model_every_n'])
         self.warmup_steps = int(config['warmup_steps'])
+        self.probs = config.get('prior_probs', None)
         if isinstance(self.game_wrapper, type(None)):
             self.game_wrapper = AtariGameWrapper(self.game)
         if isinstance(self.visualizer, type(None)):
@@ -190,7 +191,10 @@ class Trainer:
                 return torch.argmax(probs).item(), torch.round(F.softmax(probs[0]) * 100).cpu().int().tolist()
         else:
             if torch.rand(1).item() < epsilon or self.total_steps < self.warmup_steps:
-                return torch.randint(0, self.n_actions, (1,)).item(), [0] * self.n_actions
+                if self.probs is not None:
+                    return torch.multinomial(torch.tensor(self.probs), 1).item(), self.probs
+                else:
+                    return torch.randint(0, self.n_actions, (1,)).item(),  [0] * self.n_actions
             else:
                 with torch.no_grad():
                     probs = self.model(state_tensor)
