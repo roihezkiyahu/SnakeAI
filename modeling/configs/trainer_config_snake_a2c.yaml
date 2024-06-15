@@ -29,7 +29,7 @@ trainer:
     food_direction: true
     add_death_indicators: true
     direction: true
-    clear_path_pixels: false
+    clear_path_pixels: true
     length_aware: true
     reward_params:
       death: -1.5
@@ -47,9 +47,9 @@ trainer:
   gif_fps: 10
   update_every_n_steps: 1
   update_target_every_n_steps: 1
-  save_diagnostics: 500
+  save_diagnostics: 1000
   clip_grad: 0
-  save_model_every_n: 5
+  save_model_every_n: 10
   reset_options:
     randomize_position: false
   warmup_steps: 1000
@@ -71,24 +71,3 @@ atari_game_wrapper:
   losing_live_penalty: 1
   normalize_factor: 255
   frame_skip: 4
-
-snake_wrapper:
-  numeric_value: true
-  for_cnn: true
-  food_direction: true
-  add_death_indicators: true
-  direction: true
-  clear_path_pixels: false
-  length_aware: true
-  reward_params:
-    death: -1.5
-    move: 0
-    food: 1.0
-    food_length_dependent: 0
-    death_length_dependent: 0
-  failed_init_val: -1.5
-  close_food_episodes_skip: 250
-  close_food: 5000
-  max_init_len: 5
-  increasing_start_len: true
-  max_not_eaten: 100
