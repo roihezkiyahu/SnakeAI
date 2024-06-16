@@ -6,9 +6,9 @@ trainer:
   gamma: 0.99
   n_memory_episodes: 500
   prefix_name: ""
-  folder: "logging/Snake_bs64_a2c"
+  folder: "logging/Snake_bs128_a2c"
   save_gif_every_x_epochs: 500
-  batch_size: 64
+  batch_size: 128
   EPS_START: 1
   EPS_END: 0.001
   EPS_DECAY: 500

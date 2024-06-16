@@ -224,10 +224,6 @@ if __name__ == "__main__":
         {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1}]
     fc_layers = [256, 128]
 
-    # CarRacing
-    config_path = os.path.join("modeling", "configs", "trainer_config_CarRacing.yaml")
-    train_agent(config_path, conv_layers_params, fc_layers, continuous=False)
-
     # MsPacmanNoFrameskip
     config_path = os.path.join("modeling", "configs", "trainer_config_MsPacman.yaml")
     train_agent(config_path, conv_layers_params, fc_layers)
@@ -264,5 +260,10 @@ if __name__ == "__main__":
 
     config_path = os.path.join("modeling", "configs", "trainer_config_Skiing_gamma999.yaml")
     train_agent(config_path, conv_layers_params, fc_layers)
+
+    # CarRacing
+    config_path = os.path.join("modeling", "configs", "trainer_config_CarRacing.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers, continuous=False)
+
 
 

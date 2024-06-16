@@ -39,8 +39,6 @@ trainer:
   input_shape: (11, 12, 12) # for A2C only
   epochs: 15000 # for A2C only
   early_stopping: 20
-  prior_probs: [0.15, 0.15, 0.15, 0.5, 0.05]
-
 
 atari_game_wrapper:
   resize_img: null
@@ -52,4 +50,3 @@ atari_game_wrapper:
   normalize_factor: 255
   initial_frame_skip: 35
   frame_skip: null
-  prior_probs: [ 0.15, 0.15, 0.15, 0.5, 0.05 ]
