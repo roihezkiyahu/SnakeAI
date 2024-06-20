@@ -176,7 +176,10 @@ class Trainer:
         self.debugger = Debugger(self)
         self.best_model = {"model": None, "score": - np.inf}
         self.total_steps = 0
-        self.logger = Logger(apply=True, verbose=False, output_folder=self.prefix_name)
+        if config.get('log_results', None) is not None:
+            self.logger = Logger(apply=True, verbose=False, output_folder=self.prefix_name)
+        else:
+            self.logger = Logger(apply=False, verbose=False, output_folder=self.prefix_name)
         self.early_stopping = config.get('early_stopping', 0)
 
     def choose_action(self, state, epsilon, validation=False):

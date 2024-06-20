@@ -225,8 +225,8 @@ if __name__ == "__main__":
     fc_layers = [256, 128]
 
     # MsPacmanNoFrameskip
-    config_path = os.path.join("modeling", "configs", "trainer_config_MsPacman.yaml")
-    train_agent(config_path, conv_layers_params, fc_layers)
+    # config_path = os.path.join("modeling", "configs", "trainer_config_MsPacman.yaml")
+    # train_agent(config_path, conv_layers_params, fc_layers)
 
     config_path = os.path.join("modeling", "configs", "trainer_config_MsPacman_llp500.yaml")
     train_agent(config_path, conv_layers_params, fc_layers)

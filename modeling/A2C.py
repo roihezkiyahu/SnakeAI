@@ -89,8 +89,12 @@ class A2CDebugger():
         n_scores = len(scores)
         window = min(window, n_scores)
         running_avg = Debugger.moving_average(scores, window)
+        running_avg_3 = Debugger.moving_average(scores, min(window * 3, n_scores))
+        running_avg_5 = Debugger.moving_average(scores, min(window * 5, n_scores))
         plt.plot(range(1, n_scores + 1), scores, label='Score')
-        plt.plot(range(window, n_scores + 1), running_avg, label='Running Average', linestyle='dashed')
+        plt.plot(range(window, n_scores + 1), running_avg, label=f'Running Average {window}', linestyle='dashed')
+        plt.plot(range(window * 3, n_scores + 1), running_avg_3, label=f'Running Average {window * 3}', linestyle='dashed')
+        plt.plot(range(window * 5, n_scores + 1), running_avg_5, label=f'Running Average {window * 5}', linestyle='dashed')
         plt.title('Rewards History')
         plt.xlabel('Game Number')
         plt.ylabel('Score')
@@ -127,6 +131,15 @@ class A2CAgent(Trainer):
         self.input_shape = eval(input_shape) if isinstance(input_shape, str) else input_shape
         self.debugger = A2CDebugger(self)
 
+    def check_early_stop(self, episode_count):
+        if (episode_count+1) % self.validate_every_n_episodes == 0:
+            if self.early_stopping:
+                mean_scores = np.array([val_log["Mean Score"] for val_log in self.validation_log])
+                if np.all(max(mean_scores) > mean_scores[-min(self.early_stopping, len(mean_scores)):]):
+                    print("early stopped")
+                    return True
+        return False
+
     def _returns_advantages(self, rewards, dones, values, next_value):
         returns = np.append(np.zeros_like(rewards), next_value, axis=0)
 
@@ -152,6 +165,8 @@ class A2CAgent(Trainer):
                 rewards[i], dones[i], total_reward = reward, done, total_reward + reward
                 i, steps, episode_count, total_reward, obs = self.handle_episode_end(i, done, steps, total_reward,
                                                                                      episode_count, obs, policy, action)
+                if self.check_early_stop(episode_count):
+                    break
             self.update_model(observations, actions, rewards, dones, values, obs_torch)
             self.save_diagnostics_if_needed(epoch)
         print(f'The training was done over a total of {episode_count} episodes')

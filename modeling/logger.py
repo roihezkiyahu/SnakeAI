@@ -50,7 +50,7 @@ class Logger:
 
     def dump_log(self, file_name):
         if (self.output_folder == "") or (not self.apply):
-            print("no output path provided")
+            print("no logger output path provided")
             return
         if not file_name.endswith(".csv"):
             file_name = file_name + ".csv"

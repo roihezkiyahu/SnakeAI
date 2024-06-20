@@ -1,12 +1,12 @@
 trainer:
   game: ""
   render_mode: "rgb_array"
-  episodes: 40000
-  learning_rate: 5e-5
+  episodes: 25000
+  learning_rate: 5e-4
   gamma: 0.99
   n_memory_episodes: 250
   prefix_name: ""
-  folder: "logging/Snake_bs128_cpp_cf5005k_lr5e5"
+  folder: "logging/Snake_bs128_cpp_cf5005k_incslFalse"
   save_gif_every_x_epochs: 250
   batch_size: 128
   EPS_START: 1
@@ -41,7 +41,7 @@ trainer:
     close_food_episodes_skip: 500
     close_food: 5000
     max_init_len: 5
-    increasing_start_len: true
+    increasing_start_len: false
     max_not_eaten: 100
   visualizer: "snake"
   gif_fps: 10
