@@ -181,8 +181,8 @@ class A2CAgent(Trainer):
                 rewards[i], dones[i], total_reward = reward, done, total_reward + reward
                 i, steps, episode_count, total_reward, obs = self.handle_episode_end(i, done, steps, total_reward,
                                                                                      episode_count, obs, policy, action)
-                if self.check_early_stop(episode_count):
-                    break
+            if self.check_early_stop(episode_count):
+                break
             self.update_model(observations, actions, rewards, dones, values, obs_torch)
             self.save_diagnostics_if_needed(epoch)
         print(f'The training was done over a total of {episode_count} episodes')
