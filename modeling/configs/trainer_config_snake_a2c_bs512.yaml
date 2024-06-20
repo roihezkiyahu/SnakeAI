@@ -6,7 +6,7 @@ trainer:
   gamma: 0.99
   n_memory_episodes: 500
   prefix_name: ""
-  folder: "logging/Snake_bs512_a2c_lr5e4"
+  folder: "logging/Snake_bs512_a2c_lr1e5"
   save_gif_every_x_epochs: 500
   batch_size: 512
   EPS_START: 1
@@ -53,8 +53,8 @@ trainer:
   reset_options:
     randomize_position: false
   warmup_steps: 1000
-  value_network_lr: 5e-4 # for A2C only
-  actor_network_lr: 5e-4 # for A2C only
+  value_network_lr: 1e-5 # for A2C only
+  actor_network_lr: 1e-5 # for A2C only
   entropy_coefficient: 0.01 # for A2C only
   input_shape: (11, 12, 12) # for A2C only
   epochs: 150000 # for A2C only
