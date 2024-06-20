@@ -145,15 +145,14 @@ class A2CAgent(Trainer):
         self.input_shape = eval(input_shape) if isinstance(input_shape, str) else input_shape
         self.debugger = A2CDebugger(self)
 
-    def check_early_stop(self, episode_count):
-        if (episode_count+1) % self.validate_every_n_episodes == 0:
-            if self.early_stopping:
-                mean_scores = np.array([val_log["Mean Score"] for val_log in self.validation_log])
-                if not len(mean_scores):
-                    return False
-                if np.all(max(mean_scores) > mean_scores[-min(self.early_stopping, len(mean_scores)):]):
-                    print("early stopped")
-                    return True
+    def check_early_stop(self):
+        if self.early_stopping:
+            mean_scores = np.array([val_log["Mean Score"] for val_log in self.validation_log])
+            if not len(mean_scores):
+                return False
+            if np.all(max(mean_scores) > mean_scores[-min(self.early_stopping, len(mean_scores)):]):
+                print("early stopped")
+                return True
         return False
 
     def _returns_advantages(self, rewards, dones, values, next_value):
@@ -181,7 +180,7 @@ class A2CAgent(Trainer):
                 rewards[i], dones[i], total_reward = reward, done, total_reward + reward
                 i, steps, episode_count, total_reward, obs = self.handle_episode_end(i, done, steps, total_reward,
                                                                                      episode_count, obs, policy, action)
-            if self.check_early_stop(episode_count):
+            if self.check_early_stop():
                 break
             self.update_model(observations, actions, rewards, dones, values, obs_torch)
             self.save_diagnostics_if_needed(epoch)
