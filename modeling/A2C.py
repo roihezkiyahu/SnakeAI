@@ -56,21 +56,33 @@ class A2CDebugger():
                 value = self.agent.value_network(torch.tensor(observation, dtype=torch.float)).item()
                 self.value_outputs.append(value)
 
-    def plot_loss(self, epochs):
+    def plot_loss(self, epochs, window=100):
         actor_losses, value_losses = zip(*self.loss_history)
         plt.subplot(221)
+        act_running_avg = Debugger.moving_average(actor_losses, window)
+        crit_running_avg = Debugger.moving_average(value_losses, window)
         plt.plot(epochs, actor_losses, label='Actor Loss')
+        plt.plot(range(window, epochs + 1), act_running_avg, label=f'Actor Running Average {window}',
+                 linestyle='dashed')
         plt.plot(epochs, value_losses, label='Critic Loss')
+        plt.plot(range(window, epochs + 1), crit_running_avg, label=f'Critic Running Average {window}',
+                 linestyle='dashed')
         plt.title('Losses over Time')
         plt.xlabel('Epoch')
         plt.ylabel('Loss')
         plt.legend()
 
-    def plot_grads(self, epochs):
+    def plot_grads(self, epochs, window=100):
         plt.subplot(222)
         actor_grads, critic_grads = self.gradient_norms_actor, self.gradient_norms_critic
+        act_running_avg = Debugger.moving_average(actor_grads, window)
+        crit_running_avg = Debugger.moving_average(critic_grads, window)
         plt.plot(epochs, actor_grads, label='Actor Gradient Norms')
+        plt.plot(range(window, epochs + 1), act_running_avg, label=f'Actor Running Average {window}',
+                 linestyle='dashed')
         plt.plot(epochs, critic_grads, label='Critic Gradient Norms')
+        plt.plot(range(window, epochs + 1), crit_running_avg, label=f'Critic Running Average {window}',
+                 linestyle='dashed')
         plt.title('Gradient Norms over Time')
         plt.xlabel('Epoch')
         plt.ylabel('Gradient Norm')
@@ -135,6 +147,8 @@ class A2CAgent(Trainer):
         if (episode_count+1) % self.validate_every_n_episodes == 0:
             if self.early_stopping:
                 mean_scores = np.array([val_log["Mean Score"] for val_log in self.validation_log])
+                if not len(mean_scores):
+                    return False
                 if np.all(max(mean_scores) > mean_scores[-min(self.early_stopping, len(mean_scores)):]):
                     print("early stopped")
                     return True
