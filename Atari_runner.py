@@ -4,12 +4,13 @@ from modeling.AtariGameWrapper import AtariGameWrapper
 import os
 import gym
 from modeling.A2C import A2CAgent
+from modeling.PPO import PPOAgent
 import yaml
 from SnakeGame.snake_game import SnakeGame
 from modeling.SnakeWrapper import SnakeGameWrap
 
 
-def train_a2c(config, game, game_wrapper, conv_layers_params, fc_layers):
+def common_training_setup(config, game, game_wrapper, conv_layers_params, fc_layers):
     state, info = game_wrapper.reset()
     input_shape, output_size = state.shape, game.action_space.n
     fix_groups_and_input(input_shape, conv_layers_params)
@@ -17,9 +18,19 @@ def train_a2c(config, game, game_wrapper, conv_layers_params, fc_layers):
     critic_model = ActorCritic(input_shape, output_size, conv_layers_params, fc_layers, mode='critic')
     config["trainer"]["input_shape"] = input_shape
     config['trainer']['n_actions'] = output_size
-    A2C = A2CAgent(config["trainer"], critic_model, actor_model)
+    return config, actor_model, critic_model
 
+
+def train_a2c(config, game, game_wrapper, conv_layers_params, fc_layers):
+    config, actor_model, critic_model = common_training_setup(config, game, game_wrapper, conv_layers_params, fc_layers)
+    A2C = A2CAgent(config["trainer"], critic_model, actor_model)
     A2C.training_batch(config["trainer"]["epochs"], config["trainer"]["batch_size"])
+
+
+def train_ppo(config, game, game_wrapper, conv_layers_params, fc_layers):
+    config, actor_model, critic_model = common_training_setup(config, game, game_wrapper, conv_layers_params, fc_layers)
+    ppo = PPOAgent(config["trainer"], critic_model, actor_model)
+    ppo.training_batch(config["trainer"]["epochs"], config["trainer"]["batch_size"])
 
 
 def load_config(config_path):
@@ -90,7 +101,7 @@ def create_models(config, game_wrapper, conv_layers_params, fc_layers, dueling, 
 
 
 def train_agent(config_path, conv_layers_params, fc_layers, continuous=None, a2c=False,
-                game_wrapper=None, game=None):
+                game_wrapper=None, game=None, ppo=False):
     config = load_config(config_path)
     conv_layers_params = conv_layers_params.copy() if not conv_layers_params is None else None
     if game is None:
@@ -99,8 +110,11 @@ def train_agent(config_path, conv_layers_params, fc_layers, continuous=None, a2c
     config['trainer']['game_wrapper'] = game_wrapper
     dueling = config['trainer'].get("dueling", True)
     use_cnn = config['trainer'].get("use_cnn", True)
-    if a2c:
+    if a2c or config["trainer"].get("a2c", False):
         train_a2c(config, game, game_wrapper, conv_layers_params, fc_layers)
+        return
+    if ppo or config["trainer"].get("ppo", False):
+        train_ppo(config, game, game_wrapper, conv_layers_params, fc_layers)
         return
 
     model, clone_model = create_models(config, game_wrapper, conv_layers_params, fc_layers, dueling, use_cnn)

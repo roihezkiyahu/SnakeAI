@@ -63,9 +63,9 @@ class A2CDebugger():
         crit_running_avg = Debugger.moving_average(value_losses, window)
         n_epochs = len(epochs)
         plt.plot(epochs, actor_losses, label='Actor Loss')
+        plt.plot(epochs, value_losses, label='Critic Loss')
         plt.plot(range(window, n_epochs + 1), act_running_avg, label=f'Actor Running Average {window}',
                  linestyle='dashed')
-        plt.plot(epochs, value_losses, label='Critic Loss')
         plt.plot(range(window, n_epochs + 1), crit_running_avg, label=f'Critic Running Average {window}',
                  linestyle='dashed')
         plt.title('Losses over Time')
@@ -80,9 +80,9 @@ class A2CDebugger():
         crit_running_avg = Debugger.moving_average(critic_grads, window)
         n_epochs = len(epochs)
         plt.plot(epochs, actor_grads, label='Actor Gradient Norms')
+        plt.plot(epochs, critic_grads, label='Critic Gradient Norms')
         plt.plot(range(window, n_epochs + 1), act_running_avg, label=f'Actor Running Average {window}',
                  linestyle='dashed')
-        plt.plot(epochs, critic_grads, label='Critic Gradient Norms')
         plt.plot(range(window, n_epochs + 1), crit_running_avg, label=f'Critic Running Average {window}',
                  linestyle='dashed')
         plt.title('Gradient Norms over Time')

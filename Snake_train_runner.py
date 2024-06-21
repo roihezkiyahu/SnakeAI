@@ -11,13 +11,12 @@ from Atari_runner import train_agent
 
 if __name__ == "__main__":
     conv_layers_params = [
-        {'in_channels': 11, 'out_channels': 11, 'kernel_size': 3, 'stride': 1, 'padding': 1, 'groups': 11},
-        {'in_channels': 11, 'out_channels': 16, 'kernel_size': 1, 'stride': 1},
+        {'in_channels': 11, 'out_channels': 16, 'kernel_size': 3, 'stride': 1, 'padding': 1},
         {'in_channels': 16, 'out_channels': 32, 'kernel_size': 3, 'stride': 2, 'padding': 1},
         {'in_channels': 32, 'out_channels': 64, 'kernel_size': 3, 'stride': 2, 'padding': 1},
         {'in_channels': 64, 'out_channels': 128, 'kernel_size': 3, 'stride': 2, 'padding': 1}
     ]
-    fc_layers = [256]
+    fc_layers = [512]
 
     # config_path = os.path.join("modeling", "configs", "trainer_config_snake.yaml")
     # train_agent(config_path, conv_layers_params, fc_layers,
@@ -103,6 +102,10 @@ if __name__ == "__main__":
     # train_agent(config_path, conv_layers_params, fc_layers,
     #             game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
 
+    # config_path = os.path.join("modeling", "configs", "trainer_config_snake_ppo.yaml")
+    # train_agent(config_path, conv_layers_params, fc_layers,
+    #             game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap, ppo=True)
+
     config_path = os.path.join("modeling", "configs", "trainer_config_snake_cpp_lr5e5.yaml")
     train_agent(config_path, conv_layers_params, fc_layers,
                 game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
@@ -113,7 +116,20 @@ if __name__ == "__main__":
 
     config_path = os.path.join("modeling", "configs", "trainer_config_snake_a2c.yaml")
     train_agent(config_path, conv_layers_params, fc_layers,
-                game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap, a2c=True)
+                game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
+
+    config_path = os.path.join("modeling", "configs", "trainer_config_snake_a2c_incslFalse.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers,
+                game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
+
+    config_path = os.path.join("modeling", "configs", "trainer_config_snake_a2c_LenDepRew.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers,
+                game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
+
+    config_path = os.path.join("modeling", "configs", "trainer_config_snake_ppo_clip01.yaml")
+    train_agent(config_path, conv_layers_params, fc_layers,
+                game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
+
 
 
     ### A2C run

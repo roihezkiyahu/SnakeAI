@@ -50,11 +50,11 @@ class Preprocessor:
             np.array: The updated state grid with the snake marked.
         """
         for x, y in self.game.snake[1:-1]:
-            state[y, x] = 2
+            state[y, x] = 11
         tail_x, tail_y = self.game.snake[-1]
-        state[tail_y, tail_x] = 3
+        state[tail_y, tail_x] = 12
         head_x, head_y = self.game.snake[0]
-        state[head_y, head_x] = 1
+        state[head_y, head_x] = 10
         return state
 
     def mark_food_on_state(self, state):
@@ -67,7 +67,7 @@ class Preprocessor:
             np.array: The updated state grid with the food marked.
         """
         food_x, food_y = self.game.food
-        state[food_y, food_x] = 4
+        state[food_y, food_x] = 5
         return state
 
     def make_border(self, state):
@@ -79,7 +79,7 @@ class Preprocessor:
         Returns:
             np.array: The updated state grid with a border.
         """
-        new_state = np.full((self.game.height + 2, self.game.width + 2), 10, dtype=np.float32)
+        new_state = np.full((self.game.height + 2, self.game.width + 2), 20, dtype=np.float32)
         new_state[1:-1, 1:-1] = state
         return new_state
 
@@ -117,15 +117,15 @@ class Preprocessor:
 
         left = no_border_game[head_y, : head_x] if head_x != 0 else [0]
         right = no_border_game[head_y, head_x + 1:] if head_x != (self.game.width - 1) else [self.game.width - 1]
-        free_left = np.isin(left, [0, 4], invert=True)
-        free_right = np.isin(right, [0, 4], invert=True)
+        free_left = np.isin(left, [0, 1], invert=True)
+        free_right = np.isin(right, [0, 1], invert=True)
         free_left_moves = np.min(np.where(free_left[::-1])) if np.sum(free_left) > 0 else head_x
         free_right_moves = np.min(np.where(free_right)) if np.sum(free_right) > 0 else self.game.width - 1 - head_x
 
         up = no_border_game[:head_y, head_x] if head_y != 0 else [0]
         down = no_border_game[head_y + 1:, head_x] if head_y != (self.game.height - 1) else [self.game.height - 1]
-        free_up = np.isin(up, [0, 4], invert=True)
-        free_down = np.isin(down, [0, 4], invert=True)
+        free_up = np.isin(up, [0, 1], invert=True)
+        free_down = np.isin(down, [0, 1], invert=True)
         free_up_moves = np.min(np.where(free_up[::-1])) if np.sum(free_up) > 0 else head_y
         free_down_moves = np.min(np.where(free_down)) if np.sum(free_down) > 0 else self.game.height - 1 - head_y
         return np.array([free_left_moves, free_right_moves, free_up_moves, free_down_moves], dtype=np.float32)
@@ -195,7 +195,8 @@ class Preprocessor:
 
         return state.astype(np.float32)
 
-    def postprocess_action(self, action):
+    @staticmethod
+    def postprocess_action(action):
         """Convert the neural network's output action into game action.
 
         Args:
@@ -246,6 +247,7 @@ class SnakeGameWrap:
         self.preprocessor = Preprocessor(game, config)
         self.increasing_start_len = config['increasing_start_len']
         self.max_not_eaten = config['max_not_eaten']
+        self.clear_path = True
 
     def is_clear_path_between_head_and_tail(self):
         """Check if there is a clear path between the snake's head and tail.
@@ -273,6 +275,17 @@ class SnakeGameWrap:
     def get_score(self):
         return self.game.score
 
+    def handle_clear_path_reward(self, reward):
+        clear_path_reward = self.reward_params.get('no_clear_path', 0)
+        if clear_path_reward != 0:
+            if not self.is_clear_path_between_head_and_tail():
+                if self.clear_path: # check if the no clear path is new.
+                    reward += clear_path_reward
+                    self.clear_path = False
+            else:
+                self.clear_path = True
+        return reward
+
     def compute_reward(self):
         """
         Compute the reward for the current state.
@@ -290,10 +303,7 @@ class SnakeGameWrap:
         reward += (self.game.score - self.last_score) * self.reward_params['food']
         reward += (self.game.score - self.last_score) * self.reward_params.get('food_length_dependent', 0) * snake_len
         reward += done * self.reward_params.get('death_length_dependent', 0) * snake_len
-        clear_path_reward = self.reward_params.get('no_clear_path', 0)
-        if clear_path_reward != 0:
-            if not self.is_clear_path_between_head_and_tail():
-                reward += clear_path_reward
+        reward = self.handle_clear_path_reward(reward)
         self.last_score = self.game.score
         return reward
 

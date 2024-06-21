@@ -8,7 +8,7 @@
 ~~TODO add complete random games at the start of training~~
 ~~TODO add frame skipping at the start of the game~~ 
 ~~TODO integrate config use: Trainer, A2C,Snake~~
-TODO PPO implementation
+~~TODO PPO implementation~~
 TODO reach score of 100
 
 # This Repo is still a work in process

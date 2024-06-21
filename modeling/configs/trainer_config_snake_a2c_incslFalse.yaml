@@ -61,6 +61,7 @@ trainer:
   dueling: true
   use_cnn: true
   early_stopping: 20
+  a2c: true
 
 
 atari_game_wrapper:
