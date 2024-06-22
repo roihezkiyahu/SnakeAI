@@ -32,11 +32,12 @@ trainer:
     clear_path_pixels: true
     length_aware: true
     reward_params:
-      death: -1.5
+      death: -3
       move: 0
       food: 1.0
       food_length_dependent: 0
       death_length_dependent: 0
+      no_clear_path: -2
     failed_init_val: -1.5
     close_food_episodes_skip: 500
     close_food: 6000
@@ -61,7 +62,7 @@ trainer:
   dueling: true
   use_cnn: true
   early_stopping: 20
-  clip_epsilon: 0.2
+  clip_epsilon: 0.1
   ppo: true
 
 

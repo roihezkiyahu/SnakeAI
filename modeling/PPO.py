@@ -53,7 +53,9 @@ class PPOAgent(A2CAgent):
         return action_log_prob.cpu().detach().numpy()
 
     def optimize_model(self, observations, actions, returns, advantages, old_log_probs):
-        actions, returns, advantages, observations, old_log_probs = self.prepare_tensors(actions, returns, advantages, observations, old_log_probs)
+        actions, returns, advantages, observations, old_log_probs = self.prepare_tensors(actions, returns,
+                                                                                         advantages, observations,
+                                                                                         old_log_probs)
         value_loss = self.optimize_value_network(observations, returns)
         actor_loss, entropy = self.optimize_actor_network(observations, actions, advantages, old_log_probs)
         self.debugger.track_loss(actor_loss, value_loss)

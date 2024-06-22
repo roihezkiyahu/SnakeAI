@@ -56,17 +56,25 @@ class Debugger:
         ret[window:] = ret[window:] - ret[:-window]
         return ret[window - 1:] / window
 
-    def plot_loss(self, episodes, subplot=221):
+    def plot_loss(self, episodes, subplot=221, window=500):
         plt.subplot(subplot)
         plt.plot(episodes, self.loss_history, label='Loss')
+        running_avg = Debugger.moving_average(self.loss_history, window)
+        n_epochs = len(episodes)
+        plt.plot(range(window, n_epochs + 1), running_avg, label=f'Loss Running Average {window}',
+                 linestyle='dashed')
         plt.title('Losses over Time')
         plt.xlabel('Optimization step')
         plt.ylabel('Loss')
         plt.legend()
 
-    def plot_grads(self, episodes, subplot=222):
+    def plot_grads(self, episodes, subplot=222, window=500):
         plt.subplot(subplot)
         plt.plot(episodes, self.gradient_norms, label='Gradient Norms')
+        running_avg = Debugger.moving_average(self.gradient_norms, window)
+        n_epochs = len(episodes)
+        plt.plot(range(window, n_epochs + 1), running_avg, label=f'Norms Running Average {window}',
+                 linestyle='dashed')
         plt.title('Gradient Norms over Time')
         plt.xlabel('Optimization step')
         plt.ylabel('Gradient Norm')

@@ -6,7 +6,7 @@ trainer:
   gamma: 0.99
   n_memory_episodes: 500
   prefix_name: ""
-  folder: "logging/Snake_bs128_a2c_lenDepRew"
+  folder: "logging/Snake_bs128_a2c_lenDepRew_ncp10"
   save_gif_every_x_epochs: 500
   batch_size: 128
   EPS_START: 1
@@ -37,6 +37,7 @@ trainer:
       food: 0
       food_length_dependent: 0.3
       death_length_dependent: -0.5
+      no_clear_path: -10
     failed_init_val: -1.5
     close_food_episodes_skip: 500
     close_food: 6000
