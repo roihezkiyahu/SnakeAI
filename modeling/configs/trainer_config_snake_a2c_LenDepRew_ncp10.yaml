@@ -54,8 +54,8 @@ trainer:
   reset_options:
     randomize_position: false
   warmup_steps: 1000
-  value_network_lr: 1e-5 # for A2C only
-  actor_network_lr: 1e-5 # for A2C only
+  value_network_lr: 5e-5 # for A2C only
+  actor_network_lr: 5e-5 # for A2C only
   entropy_coefficient: 0.01 # for A2C only
   input_shape: (11, 12, 12) # for A2C only
   epochs: 150000 # for A2C only
