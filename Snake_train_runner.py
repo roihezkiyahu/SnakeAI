@@ -106,9 +106,9 @@ if __name__ == "__main__":
     # train_agent(config_path, conv_layers_params, fc_layers,
     #             game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
 
-    config_path = os.path.join("modeling", "configs", "trainer_config_snake_cpp_lr1e5_ncp2_death3.yaml")
-    train_agent(config_path, conv_layers_params, fc_layers,
-                game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
+    # config_path = os.path.join("modeling", "configs", "trainer_config_snake_cpp_lr1e5_ncp2_death3.yaml")
+    # train_agent(config_path, conv_layers_params, fc_layers,
+    #             game=SnakeGame(10, 10, 10, default_start_prob=0.1), game_wrapper=SnakeGameWrap)
 
     config_path = os.path.join("modeling", "configs", "trainer_config_snake_a2c_ncp2_death3.yaml")
     train_agent(config_path, conv_layers_params, fc_layers,
