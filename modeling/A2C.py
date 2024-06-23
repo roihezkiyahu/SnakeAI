@@ -247,7 +247,7 @@ class A2CAgent(Trainer):
     def prepare_tensors(self, actions, returns, advantages, observations):
         actions = F.one_hot(torch.tensor(actions, dtype=torch.int64), self.n_actions).float().to(self.device)
         returns = torch.tensor(returns[:, None], dtype=torch.float).to(self.device)
-        advantages = torch.tensor(advantages, dtype=torch.float).to(self.device)
+        advantages = torch.tensor(advantages, dtype=torch.float).to(self.device) # TODO add normzlization option
         observations = torch.tensor(observations, dtype=torch.float).to(self.device)
         return actions, returns, advantages, observations
 
