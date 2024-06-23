@@ -275,12 +275,13 @@ class SnakeGameWrap:
     def get_score(self):
         return self.game.score
 
-    def handle_clear_path_reward(self, reward):
+    def handle_clear_path_reward(self, reward, snake_len):
         clear_path_reward = self.reward_params.get('no_clear_path', 0)
-        if clear_path_reward != 0:
+        clear_path_reward_len_dep = self.reward_params.get('no_clear_path_length_dependent', 0)
+        if clear_path_reward != 0 or clear_path_reward_len_dep != 0:
             if not self.is_clear_path_between_head_and_tail():
                 if self.clear_path: # check if the no clear path is new.
-                    reward += clear_path_reward
+                    reward += clear_path_reward + clear_path_reward_len_dep*snake_len
                     self.clear_path = False
             else:
                 self.clear_path = True
@@ -303,7 +304,7 @@ class SnakeGameWrap:
         reward += (self.game.score - self.last_score) * self.reward_params['food']
         reward += (self.game.score - self.last_score) * self.reward_params.get('food_length_dependent', 0) * snake_len
         reward += done * self.reward_params.get('death_length_dependent', 0) * snake_len
-        reward = self.handle_clear_path_reward(reward)
+        reward = self.handle_clear_path_reward(reward, snake_len)
         self.last_score = self.game.score
         return reward
 
