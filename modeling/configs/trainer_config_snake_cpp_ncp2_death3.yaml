@@ -13,7 +13,7 @@ trainer:
   EPS_END: 0.001
   EPS_DECAY: 500
   TAU: 5e-4
-  max_episode_len: 1500
+  max_episode_len: 5000
   use_ddqn: true
   replaymemory: 10000
   optimizer: null

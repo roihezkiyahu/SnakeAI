@@ -6,14 +6,14 @@ trainer:
   gamma: 0.99
   n_memory_episodes: 500
   prefix_name: ""
-  folder: "logging/Snake_bs128_a2c_lenDepRew_ncp"
+  folder: "logging/Snake_bs128_a2c_ncp2_death3_bs512"
   save_gif_every_x_epochs: 500
-  batch_size: 128
+  batch_size: 512
   EPS_START: 1
   EPS_END: 0.001
   EPS_DECAY: 500
   TAU: 5e-4
-  max_episode_len: 1500
+  max_episode_len: 5000
   use_ddqn: true
   replaymemory: 10000
   optimizer: null
@@ -32,13 +32,12 @@ trainer:
     clear_path_pixels: true
     length_aware: true
     reward_params:
-      death: 0
+      death: -3
       move: 0
-      food: 0
-      food_length_dependent: 0.5
-      death_length_dependent: -1.5
-      no_clear_path: 0
-      no_clear_path_length_dependent: -1
+      food: 1.0
+      food_length_dependent: 0
+      death_length_dependent: 0
+      no_clear_path: -2
     failed_init_val: -1.5
     close_food_episodes_skip: 500
     close_food: 6000
@@ -55,15 +54,16 @@ trainer:
   reset_options:
     randomize_position: false
   warmup_steps: 1000
-  value_network_lr: 5e-5 # for A2C only
-  actor_network_lr: 5e-5 # for A2C only
+  value_network_lr: 7.5e-5 # for A2C only
+  actor_network_lr: 7.5e-5 # for A2C only
   entropy_coefficient: 0.01 # for A2C only
   input_shape: (11, 12, 12) # for A2C only
-  epochs: 150000 # for A2C only
+  epochs: 250000 # for A2C only
   dueling: true
   use_cnn: true
   early_stopping: 20
   a2c: true
+  normalize_adv: false
 
 
 atari_game_wrapper:

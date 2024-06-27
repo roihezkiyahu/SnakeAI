@@ -141,6 +141,7 @@ class A2CAgent(Trainer):
         self.value_optimizer = optim.RMSprop(self.value_network.parameters(), lr=float(config["value_network_lr"]))
         self.actor_optimizer = optim.RMSprop(self.actor_network.parameters(), lr=float(config["actor_network_lr"]))
         self.entropy_coefficient = float(config["entropy_coefficient"])
+        self.normalize_adv = config.get("normalize_adv", False)
         input_shape = config["input_shape"]
         self.input_shape = eval(input_shape) if isinstance(input_shape, str) else input_shape
         self.debugger = A2CDebugger(self)
@@ -163,6 +164,8 @@ class A2CAgent(Trainer):
 
         returns = returns[:-1]
         advantages = returns - values
+        if self.normalize_adv:
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-10)
         return returns, advantages
 
     def training_batch(self, epochs, batch_size):

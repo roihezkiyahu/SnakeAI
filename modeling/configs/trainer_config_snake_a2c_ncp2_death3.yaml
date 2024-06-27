@@ -13,7 +13,7 @@ trainer:
   EPS_END: 0.001
   EPS_DECAY: 500
   TAU: 5e-4
-  max_episode_len: 1500
+  max_episode_len: 5000
   use_ddqn: true
   replaymemory: 10000
   optimizer: null
@@ -58,11 +58,12 @@ trainer:
   actor_network_lr: 5e-5 # for A2C only
   entropy_coefficient: 0.01 # for A2C only
   input_shape: (11, 12, 12) # for A2C only
-  epochs: 150000 # for A2C only
+  epochs: 250000 # for A2C only
   dueling: true
   use_cnn: true
   early_stopping: 20
   a2c: true
+  normalize_adv: false
 
 
 atari_game_wrapper:
