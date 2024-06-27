@@ -1,0 +1,78 @@
+trainer:
+  game: ""
+  render_mode: "rgb_array"
+  episodes: 10000
+  learning_rate: 5e-5
+  gamma: 0.99
+  n_memory_episodes: 500
+  prefix_name: ""
+  folder: "logging/Snake_bs128_a2c_ncp2_death3_bs256"
+  save_gif_every_x_epochs: 500
+  batch_size: 256
+  EPS_START: 1
+  EPS_END: 0.001
+  EPS_DECAY: 500
+  TAU: 5e-4
+  max_episode_len: 5000
+  use_ddqn: true
+  replaymemory: 10000
+  optimizer: null
+  per_alpha: 0
+  use_scheduler: false
+  validate_every_n_episodes: 500
+  validate_episodes: 100
+  patience: 3
+  game_wrapper:
+    name: "snake"
+    numeric_value: true
+    for_cnn: true
+    food_direction: true
+    add_death_indicators: true
+    direction: true
+    clear_path_pixels: true
+    length_aware: true
+    reward_params:
+      death: -3
+      move: 0
+      food: 1.0
+      food_length_dependent: 0
+      death_length_dependent: 0
+      no_clear_path: -2
+    failed_init_val: -1.5
+    close_food_episodes_skip: 500
+    close_food: 6000
+    max_init_len: 5
+    increasing_start_len: true
+    max_not_eaten: 100
+  visualizer: "snake"
+  gif_fps: 10
+  update_every_n_steps: 1
+  update_target_every_n_steps: 1
+  save_diagnostics: 1000
+  clip_grad: 0
+  save_model_every_n: 10
+  reset_options:
+    randomize_position: false
+  warmup_steps: 1000
+  value_network_lr: 7.5e-5 # for A2C only
+  actor_network_lr: 7.5e-5 # for A2C only
+  entropy_coefficient: 0.01 # for A2C only
+  input_shape: (11, 12, 12) # for A2C only
+  epochs: 250000 # for A2C only
+  dueling: true
+  use_cnn: true
+  early_stopping: 20
+  a2c: true
+  normalize_adv: false
+
+
+atari_game_wrapper:
+  resize_img: [ 80, 105 ]
+  gray_scale: true
+  random_envs: 0
+  default_start_prob: 0.5
+  random_steps_range: [50, 300]
+  stack_n_frames: 4
+  losing_live_penalty: 1
+  normalize_factor: 255
+  frame_skip: 4
