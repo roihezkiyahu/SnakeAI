@@ -6,7 +6,7 @@ trainer:
   gamma: 0.99
   n_memory_episodes: 1000
   prefix_name: ""
-  folder: "logging/Snake_bs128_a2c_ncp2_death3ent05"
+  folder: "logging/Snake_bs128_a2c_ncp2_death3ent10"
   save_gif_every_x_epochs: 1000
   batch_size: 128
   EPS_START: 1
@@ -42,7 +42,7 @@ trainer:
     close_food_episodes_skip: 500
     close_food: 6000
     max_init_len: 5
-    increasing_start_len: true
+    increasing_start_len: false
     max_not_eaten: 100
   visualizer: "snake"
   gif_fps: 10

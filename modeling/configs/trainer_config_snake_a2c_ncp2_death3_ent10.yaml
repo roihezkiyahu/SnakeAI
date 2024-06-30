@@ -56,7 +56,7 @@ trainer:
   warmup_steps: 1000
   value_network_lr: 5e-5 # for A2C only
   actor_network_lr: 5e-5 # for A2C only
-  entropy_coefficient: 0.05 # for A2C only
+  entropy_coefficient: 0.1 # for A2C only
   input_shape: (11, 12, 12) # for A2C only
   epochs: 250000 # for A2C only
   dueling: true
