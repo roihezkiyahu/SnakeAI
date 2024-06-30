@@ -92,6 +92,8 @@ class Preprocessor:
             np.array: The direction and distance to the food.
         """
         head_x, head_y = self.game.snake[0]
+        if isinstance(self.game.food, type(None)):  # won the game
+            food_x, food_y = 0, 0
         food_x, food_y = self.game.food
         if self.numeric_value:
             left = food_x - head_x
