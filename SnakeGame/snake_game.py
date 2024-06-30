@@ -89,9 +89,12 @@ class SnakeGame:
 
     def place_food(self):
         if self.max_food_distance is None:
-            self.food = (random.randint(0, self.width - 1), random.randint(0, self.height - 1))
-            while self.food in self.snake:
-                self.food = (random.randint(0, self.width - 1), random.randint(0, self.height - 1))
+            all_positions = {(x, y) for x in range(self.width) for y in range(self.height)}
+            available_positions = list(all_positions - set(self.snake))
+            if available_positions:
+                self.food = random.choice(available_positions)
+            else:
+                self.food = None
             return
 
         head_x, head_y = self.snake[0]
@@ -137,6 +140,10 @@ class SnakeGame:
             self.place_food()
         else:
             self.snake.pop()
+
+        if isinstance(self.food, type(None)): #won the game
+            self.score += 10
+            return self.score, True
 
         return self.score, self.game_over
 

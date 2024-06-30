@@ -1,7 +1,7 @@
 trainer:
   game: ""
   render_mode: "rgb_array"
-  episodes: 25000
+  episodes: 100000
   learning_rate: 5e-5
   gamma: 0.99
   n_memory_episodes: 250
@@ -61,7 +61,7 @@ trainer:
   epochs: 15000 # for A2C only
   dueling: true
   use_cnn: true
-  early_stopping: 20
+  early_stopping: 30
 
 atari_game_wrapper:
   resize_img: [ 80, 105 ]
