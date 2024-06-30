@@ -66,6 +66,8 @@ class Preprocessor:
         Returns:
             np.array: The updated state grid with the food marked.
         """
+        if isinstance(self.food, type(None)): #won the game
+            return state
         food_x, food_y = self.game.food
         state[food_y, food_x] = 5
         return state
