@@ -29,7 +29,10 @@ class GameVisualizer:
                 ax.add_patch(patches.Rectangle((x, y), 1, 1, facecolor='green'))
 
     def draw_food(self, ax):
-        food_x, food_y = self.game.food
+        if isinstance(self.game.food, type(None)):  # won the game
+            food_x, food_y = 0, 0
+        else:
+            food_x, food_y = self.game.food
         ax.add_patch(patches.Circle((food_x + 0.5, food_y + 0.5), 0.5, facecolor='red'))
 
     def save_current_frame(self, game_action, probs):
@@ -93,7 +96,10 @@ class GameVisualizer_cv2:
                           ((x + 1) * self.cell_size, (y + 1) * self.cell_size + offset_y), color, -1)
 
     def draw_food(self, img, offset_y):
-        food_x, food_y = self.game.food
+        if isinstance(self.game.food, type(None)):  # won the game
+            food_x, food_y = 0, 0
+        else:
+            food_x, food_y = self.game.food
         center = (int(food_x * self.cell_size + self.cell_size / 2), int(food_y * self.cell_size + self.cell_size / 2 + offset_y))
         cv2.circle(img, center, self.cell_size // 2, (0, 0, 255), -1)
 
