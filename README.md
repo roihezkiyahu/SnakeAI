@@ -8,10 +8,6 @@ Here are two of the best agent's games using A2C:
 
 ![Current AVG game A2C](A2C 78.gif)
 
-![Current AVG game A2C loop](A2C78-ezgif.com-loop-count.gif)
-
-![Current AVG game A2C opti](A2C78-ezgif.com-optimize.gif)
-
-![Perfect score A2C](A2C_100.gif)
+![Perfect score A2C](A2C 100.gif)
 
 ![Current Results Dueling DDQN](Score_Dueling_DDQN.gif)
