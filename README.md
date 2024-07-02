@@ -1,19 +1,13 @@
-~~TODO A2C wrapper~~
-~~TODO Trainer debugger~~
-~~TODO grayscale option~~
-~~TODO add observation stacking - based on memory argument~~
-~~TODO random start~~
-~~TODO model versioning - saving the model while training~~
-~~TODO losing lives reward shaping~~
-~~TODO add complete random games at the start of training~~
-~~TODO add frame skipping at the start of the game~~ 
-~~TODO integrate config use: Trainer, A2C,Snake~~
-~~TODO PPO implementation~~
-TODO reach score of 100
+In this repo I implement several RL algorithms (DQN, DDQN, Dueling DDQN, A2C, PPO) in order to teach the agent to play snake.
 
-# This Repo is still a work in process
-In this repo i implement several RL algorithms (DQN,DDQN Dueling DQN, A2C) and later on i plan to also use PPO in order to teach the agent to play snake.
+Along the way, I decided to generalize my code so that it can handle any Atari game from Gymnasium, and also so that I can run multiple configurations with ease to achieve a perfect score.
 
-![Current Results Dueling DDQN](Score Dueling DDQN.gif)
+The best-performing snake agent was the A2C with a mean score of 78 and a median score of 100!
 
-![Current Results Dueling A2C](Score A2C.gif)
+Here are two of the best agent's games using A2C:
+
+![Current AVG game A2C](A2C_78.gif)
+
+![Perfect score A2C](A2C_100.gif)
+
+![Current Results Dueling DDQN](Score_Dueling_DDQN.gif)
