@@ -8,6 +8,7 @@ try:
 except:
     print("no opencv moudle")
 
+
 class GameVisualizer:
     def __init__(self, game):
         self.game = game

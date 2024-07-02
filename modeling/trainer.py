@@ -1,4 +1,3 @@
-from modeling.game_viz import GameVisualizer, GameVisualizer_cv2
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -158,8 +157,6 @@ class Trainer:
             self.game_wrapper = AtariGameWrapper(self.game)
         if isinstance(self.visualizer, type(None)):
             self.visualizer = AtariGameViz(self.game, self.device)
-        elif self.visualizer == "snake":
-            self.visualizer = GameVisualizer_cv2(self.game)
         self.model = model.to(self.device)
         self.target_net = clone_model.to(self.device)
         if config['folder']:
