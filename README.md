@@ -6,7 +6,11 @@ The best-performing snake agent was the A2C with a mean score of 78 and a median
 
 Here are two of the best agent's games using A2C:
 
-![Current AVG game A2C](https://imgur.com/a/Z1rlNk4)
+![Current AVG game A2C](A2C 78.gif)
+
+![Current AVG game A2C loop](A2C78-ezgif.com-loop-count.gif)
+
+![Current AVG game A2C opti](A2C78-ezgif.com-optimize.gif)
 
 ![Perfect score A2C](A2C_100.gif)
 
